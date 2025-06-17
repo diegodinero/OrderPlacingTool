@@ -134,6 +134,7 @@ namespace OrderPlacingTool
         enum LotMode { None, Cash, RiskBal, RiskEq }
         LotMode lotMode = LotMode.Cash;
 
+        Rectangle beValueBox;
         //──────────────────────────────────────────────────────────────────────────────
         public OrderPlacingTool()
         {
@@ -163,6 +164,7 @@ namespace OrderPlacingTool
             int X = xShift, Y = yShift;
 
             const int headerBtnW = 120;  // <-- desired width
+            const int breakBtnW = headerBtnW;
 
             // Row1: SELL | qty | BUY
             sellBtn = new Button(
@@ -241,24 +243,32 @@ new Button(
             // Row4: Break-Even & Partial now pushed below the entire Lot-Calc block
             int BY = startLotY + lotCount * rowHeight + gutter;
             // instantiate the two buttons at the new BY
-            beBtn = new Button(
-                "Move SL To BE",
-                 X + gutter, BY,
-                 X + 160, BY + row4H,
-                 beBack, bePen, smallFont, textBrush
+            beBtn = new Button("Move SL To BE",
+X + gutter, BY,
+X + gutter + breakBtnW, BY + row4H,
+        beBack, bePen, smallFont, textBrush
+    );
+
+            partBtn = new Button("Close Part",
+X + panelW - gutter - breakBtnW, BY,
+X + panelW - gutter, BY + row4H,
+                 partBack, partPen, smallFont, textBrush
             );
 
-            partBtn = new Button(
-                "Close Part",
-                 X + 176, BY,
-                 X + 296, BY + row4H,
-                 partBack, partPen, smallFont, textBrush
+            //
+            // reserve space for the "0.0" box between the two buttons
+            //
+            beValueBox = new Rectangle(
+                beBtn.X2 + gutter,    // immediately to the right of Move SL To BE
+                beBtn.Y1,             // same top as those buttons
+                50,                   // whatever width you like
+                row4H                 // same height
             );
 
             int PY = BY + row4H;
 
             // place labels immediately below the BE & Partial-Close buttons
-            int labelY = BY + row4H + gutter;
+            int labelY = BY + row4H + (gutter / 2);
 
             labelCloseTrades = new Rectangle(
                 X + gutter,
@@ -374,48 +384,150 @@ new Button(
             g.DrawString(pipR.ToString("F1"), mainFont, textBrush,
                          p2.Right - (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
 
+
             // 5) Row3: Lot-Calc + Cash
-            foreach (var b in lotRadios)
+
+            int startLotY = Y + headerH + row1H + row2H + gutter;
+
+            // 1) Calculate the bottom of the Pips bar:
+            int pipBarBottom = Y + headerH + row1H + row2H;
+
+            // 2) LOT CALC LABEL (just below the pip bar)
+            float lotLabelY = pipBarBottom + gutter / 2f;
+            g.DrawString(
+                "Lot Calc.",
+                smallFont,
+                textBrush,
+                X + gutter,
+                lotLabelY,
+                LeftFormat
+            );
+
+            // 3) PERCENT (right-aligned on same line)
+            string pct = (9.14).ToString("F2") + "%";  // replace with your real value
+            using (var pctBrush = new SolidBrush(buyCol.Color1))
             {
-                b.DrawCircle(g, btnRadius);
-                g.DrawString(b.Text, smallFont, textBrush,
-                    b.X1 + b.Width + 4,
-                    b.Y1 + row3H / 2,
-                    LeftFormat);
+                var pctFmt = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
+                g.DrawString(
+                    pct,
+                    smallFont,
+                    pctBrush,
+                    X + panelW - gutter,
+                    lotLabelY,
+                    pctFmt
+                );
             }
-            // draw the grey box
+
+            // 4) RADIO BUTTONS (one gutter below the label)
+            int radioStartY = (int)(lotLabelY + smallFont.Height + gutter / 2);
+            for (int i = 0; i < lotRadios.Length; i++)
+            {
+                var b = lotRadios[i];
+                b.Y1 = radioStartY + i * (radioSize + gutter);
+                b.Y2 = b.Y1 + radioSize;
+                b.DrawCircle(g, btnRadius);
+                g.DrawString(
+                    b.Text,
+                    smallFont,
+                    textBrush,
+                    b.X1 + radioSize + 4,
+                    b.Y1 + radioSize / 2,
+                    LeftFormat
+                );
+            }
+
+            // 5) CASH BOX (positioned alongside the “Cash Amount” radio)
+            cashBox.Y = radioStartY + 1 * (radioSize + gutter) + 4;
             using (var br = new SolidBrush(panelBack))
                 g.FillRectangle(br, cashBox);
             g.DrawRectangle(Pens.Gray, cashBox);
+            g.DrawString(
+                cashAmt.ToString("F2"),
+                smallFont,
+                textBrush,
+                cashBox.X + cashBox.Width / 2,
+                cashBox.Y + cashBox.Height / 2,
+                CenterFormat
+            );
+            g.DrawString(
+                "USD",
+                smallFont,
+                textBrush,
+                cashBox.Right + 4,
+                cashBox.Y + cashBox.Height / 2,
+                LeftFormat
+            );
 
-            // draw the number centered
-            g.DrawString(cashAmt.ToString("F2"), smallFont, textBrush,
-                         cashBox.X + cashBox.Width / 2,
-                         cashBox.Y + cashBox.Height / 2,
-                         CenterFormat);
+            // 6) BREAK-EVEN & PARTIAL  
+            //    find the top of that button row:
+            int BY = radioStartY + lotRadios.Length * (radioSize + gutter) + gutter;
 
-            // draw the “USD” just to the right of it
-            g.DrawString("USD", smallFont, textBrush,
-                         cashBox.Right + 4,  // small 4px gap
-                         cashBox.Y + cashBox.Height / 2,
-                         LeftFormat);
+            // compute Y so that the text sits a full gutter above those buttons
+            int breakLabelY = BY
+                - mainFont.Height   // because you’re drawing with mainFont 
+                + gutter + 5;           // a full gutter gap
 
+            g.DrawString(
+                "Break Even & Partial Close",
+                mainFont,
+                textBrush,
+                X + gutter,
+                breakLabelY,
+                LeftFormat
+            );
 
-            // 6) Row4: Break-Even & Partial
+            // now draw the buttons themselves:
+            beBtn.Y1 = BY; beBtn.Y2 = BY + row4H;
+            partBtn.Y1 = BY; partBtn.Y2 = BY + row4H;
             beBtn.Draw(g, btnRadius);
-            g.DrawString(beVal.ToString("F1"), smallFont, textBrush,
-                         beBtn.X2 + 30,
-                         beBtn.Y1 + row4H / 2,
-                         CenterFormat);
             partBtn.Draw(g, btnRadius);
 
-            // 7) Row5: Labels (above buttons)
-            g.DrawString("Close Trades", mainFont, textBrush,
-                         labelCloseTrades, LeftFormat);
-            g.DrawString("Close Orders", mainFont, textBrush,
-                         labelCloseOrders, LeftFormat);
+            // 7) MIDDLE BE-VALUE BOX (size it to exactly fill the gap)
+            beValueBox = new Rectangle(
+                beBtn.X2 + gutter,
+                BY,
+                partBtn.X1 - beBtn.X2 - (gutter * 2),
+                row4H
+            );
+            using (var br = new SolidBrush(panelBack))
+                g.FillRectangle(br, beValueBox);
+            g.DrawRectangle(Pens.Gray, beValueBox);
+            g.DrawString(
+                beVal.ToString("F1"),
+                smallFont,
+                textBrush,
+                beValueBox.X + beValueBox.Width / 2,
+                beValueBox.Y + beValueBox.Height / 2,
+                CenterFormat
+            );
+            int labelY = BY + row4H + gutter / 2;
 
-            // 8) Row6: All / Profit / Loss / Stop (below labels)
+            g.DrawString(
+              "Close Trades",
+              mainFont,
+              textBrush,
+              X + gutter,
+              labelY,
+              LeftFormat
+            );
+
+            g.DrawString(
+              "Close Orders",
+              mainFont,
+              textBrush,
+              X + panelW - gutter - 120,    // 120 = width of that label block
+              labelY,
+              LeftFormat
+            );
+
+            // 4) And immediately under *that*, draw your All/Profit/Loss/Stop buttons…
+            //    spacing them only by half a gutter (so they sit tightly under the labels)
+            int btnRowY = labelY + mainFont.Height + gutter / 2;
+            btnAll.Y1 = btnRowY; btnAll.Y2 = btnRowY + row2H;
+            btnProfit.Y1 = btnRowY; btnProfit.Y2 = btnRowY + row2H;
+            btnLoss.Y1 = btnRowY; btnLoss.Y2 = btnRowY + row2H;
+            btnStop.Y1 = btnRowY; btnStop.Y2 = btnRowY + row2H;
+
             btnAll.Draw(g, btnRadius);
             btnProfit.Draw(g, btnRadius);
             btnLoss.Draw(g, btnRadius);
