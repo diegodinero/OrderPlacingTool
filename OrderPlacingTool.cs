@@ -78,7 +78,7 @@ namespace OrderPlacingTool
         const int radioSize = 14;
 
         //── COLORS & FONTS ───────────────────────────────────────────────────────────
-        readonly Color panelBack = Color.FromArgb(30, 30, 40);
+        readonly Color panelBack = Color.FromArgb(20, 30, 40);
         readonly Color headerBack = Color.FromArgb(20, 20, 30);
         readonly Color borderCol = Color.Gray;
         readonly PairColor sellCol = new PairColor
