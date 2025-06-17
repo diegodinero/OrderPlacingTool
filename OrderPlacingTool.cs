@@ -1,16 +1,14 @@
-// Decompiled with JetBrains decompiler
-// Type: OrderPlacingTool.OrderPlacingTool
-// Assembly: OrderPlacingTool, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: A639F7DA-FCA2-48A1-B5DB-C3BC906AC634
-// Assembly location: C:\Users\LaDarrious\Desktop\Quantower\Settings\Scripts\Indicators\Order Placing Tool\OrderPlacingTool.dll
+//------------------------------------------------------------------------------
+// OrderPlacingTool.cs
+//------------------------------------------------------------------------------
+// Renders a fully-styled “Trade Manager” panel matching your mock-up.
+//------------------------------------------------------------------------------
 
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using TradingPlatform.BusinessLayer;
 using TradingPlatform.BusinessLayer.Chart;
 using TradingPlatform.BusinessLayer.Native;
@@ -21,139 +19,41 @@ namespace OrderPlacingTool
 {
     public class OrderPlacingTool : Indicator
     {
-        
-        private const string VERSION = "1.04";
-        private const string DESCRIPTION = "rectified button reset logic";
+        //── USER SETTINGS ───────────────────────────────────────────────────────────
         private int riskInAmount = 100;
         private double rewardMultiplier = 1.0;
-        private int xShift = 1000;
-        private int yShift = 25;
-        private PairColor limitButtonPairColor = new PairColor()
-        {
-            Text1 = "Back",
-            Color1 = Color.Lime,
-            Text2 = "Border",
-            Color2 = Color.Lime
-        };
-        private PairColor marketButtonPairColor = new PairColor()
-        {
-            Text1 = "Back",
-            Color1 = Color.Lime,
-            Text2 = "Border",
-            Color2 = Color.Lime
-        };
-        private Font font = new Font("Arial", 11f);
-        private Color fontColor = Color.White;
-        private PairColor infoButtonPairColor = new PairColor()
-        {
-            Text1 = "Back",
-            Color1 = Color.Empty,
-            Text2 = "Border",
-            Color2 = Color.White
-        };
-        private Font infoFont = new Font("Arial", 11f);
-        private Color infoFontColor = Color.White;
-        private PairColor cancelButtonPairColor = new PairColor()
-        {
-            Text1 = "Back",
-            Color1 = Color.Red,
-            Text2 = "Border",
-            Color2 = Color.Red
-        };
-        private Button limitButton = null;
-        private Button marketButton = null;
-        private Button infoButton = null;
-        private bool initFailed = false;
-        private DateTime expiry = new DateTime(2025, 6, 20, 0, 0, 0);
-        private Brush limitBackBrush = null;
-        private Pen limitBorderPen = null;
-        private Brush marketBackBrush = null;
-        private Pen marketBorderPen = null;
-        private Brush textBrush = null;
-        private StringFormat stringFormat = new StringFormat()
-        {
-            Alignment = StringAlignment.Center,
-            LineAlignment = StringAlignment.Center
-        };
-        private Brush infoBackBrush = null;
-        private Pen infoBorderPen = null;
-        private Brush infoTextBrush = null;
-        private Brush cancelBackBrush = null;
-        private Pen cancelBorderPen = null;
-        private TradeParams tradeParams = new TradeParams();
-        private bool isMouseRegistered = false;
-        private TradingOperationResult tradingOperationResult = null;
+        private int xShift = 30;   // panel left offset
+        private int yShift = 30;   // panel top offset
 
-        // 1. Override the Settings property instead of redeclaring it as virtual
         public override IList<SettingItem> Settings
         {
             get
             {
-                IList<SettingItem> settings = base.Settings;
-                SettingItemSeparatorGroup sep = settings.FirstOrDefault()?.SeparatorGroup;
-                settings.Add(new SettingItemInteger("riskInAmount", riskInAmount)
+                var s = base.Settings;
+                var sep = s.FirstOrDefault()?.SeparatorGroup;
+                s.Add(new SettingItemInteger("riskInAmount", riskInAmount)
                 {
-                    Text = "Risk in amount",
+                    Text = "Risk Amount",
                     SeparatorGroup = sep
                 });
-                settings.Add(new SettingItemDouble("rewardMultiplier", rewardMultiplier)
+                s.Add(new SettingItemDouble("rewardMultiplier", rewardMultiplier)
                 {
-                    Text = "Reward multiplier for TP",
+                    Text = "Reward Multiplier",
                     Increment = 0.1,
                     DecimalPlaces = 1,
                     SeparatorGroup = sep
                 });
-                settings.Add(new SettingItemInteger("xShift", xShift)
+                s.Add(new SettingItemInteger("xShift", xShift)
                 {
-                    Text = "X shift",
+                    Text = "X Offset",
                     SeparatorGroup = sep
                 });
-                settings.Add(new SettingItemInteger("yShift", yShift)
+                s.Add(new SettingItemInteger("yShift", yShift)
                 {
-                    Text = "Y shift",
+                    Text = "Y Offset",
                     SeparatorGroup = sep
                 });
-                settings.Add(new SettingItemPairColor("limitButtonPairColor", limitButtonPairColor)
-                {
-                    Text = "Limit button colors",
-                    SeparatorGroup = sep
-                });
-                settings.Add(new SettingItemPairColor("marketButtonPairColor", marketButtonPairColor)
-                {
-                    Text = "Market button colors",
-                    SeparatorGroup = sep
-                });
-                settings.Add(new SettingItemFont("font", font)
-                {
-                    Text = "Font style",
-                    SeparatorGroup = sep
-                });
-                settings.Add(new SettingItemColor("fontColor", fontColor)
-                {
-                    Text = "Font color",
-                    SeparatorGroup = sep
-                });
-                settings.Add(new SettingItemPairColor("infoButtonPairColor", infoButtonPairColor)
-                {
-                    Text = "Info box colors",
-                    SeparatorGroup = sep
-                });
-                settings.Add(new SettingItemFont("infoFont", infoFont)
-                {
-                    Text = "Info font style",
-                    SeparatorGroup = sep
-                });
-                settings.Add(new SettingItemColor("infoFontColor", infoFontColor)
-                {
-                    Text = "Info font color",
-                    SeparatorGroup = sep
-                });
-                settings.Add(new SettingItemPairColor("cancelButtonPairColor", cancelButtonPairColor)
-                {
-                    Text = "Cancel button colors",
-                    SeparatorGroup = sep
-                });
-                return settings;
+                return s;
             }
             set
             {
@@ -161,359 +61,436 @@ namespace OrderPlacingTool
                 SettingItemExtensions.TryGetValue(value, "rewardMultiplier", out rewardMultiplier);
                 SettingItemExtensions.TryGetValue(value, "xShift", out xShift);
                 SettingItemExtensions.TryGetValue(value, "yShift", out yShift);
-                SettingItemExtensions.TryGetValue(value, "limitButtonPairColor", out limitButtonPairColor);
-                SettingItemExtensions.TryGetValue(value, "marketButtonPairColor", out marketButtonPairColor);
-                SettingItemExtensions.TryGetValue(value, "font", out font);
-                SettingItemExtensions.TryGetValue(value, "fontColor", out fontColor);
-                SettingItemExtensions.TryGetValue(value, "infoButtonPairColor", out infoButtonPairColor);
-                SettingItemExtensions.TryGetValue(value, "infoFont", out infoFont);
-                SettingItemExtensions.TryGetValue(value, "infoFontColor", out infoFontColor);
-                SettingItemExtensions.TryGetValue(value, "cancelButtonPairColor", out cancelButtonPairColor);
                 base.Settings = value;
-                OnSettingsUpdated();
+                BuildBrushesAndPens();
             }
         }
 
-        private void OnSettingsUpdated()
+        //── LAYOUT CONSTANTS ─────────────────────────────────────────────────────────
+        const int panelW = 320;
+        const int headerH = 36;
+        const int row1H = 56;
+        const int row2H = 36;
+        const int row3H = 36;
+        const int row4H = 44;
+        const int btnRadius = 6;
+        const int gutter = 8;
+        const int radioSize = 14;
+
+        //── COLORS & FONTS ───────────────────────────────────────────────────────────
+        readonly Color panelBack = Color.FromArgb(30, 30, 40);
+        readonly Color headerBack = Color.FromArgb(20, 20, 30);
+        readonly Color borderCol = Color.Gray;
+        readonly PairColor sellCol = new PairColor { Color1 = Color.Red, Color2 = Color.DarkRed };
+        readonly PairColor buyCol = new PairColor { Color1 = Color.Green, Color2 = Color.DarkGreen };
+        readonly PairColor beCol = new PairColor
         {
-            // reposition buttons
-            int w = 100, h = 40, s = 10;
-            limitButton?.Set(xShift, yShift, xShift + w, yShift + h);
-            marketButton?.Set(xShift + w + s, yShift, xShift + 2 * w + s, yShift + h);
-            infoButton?.Set(xShift + (w + s) / 2, yShift + h + s, xShift + (w + s) / 2 + 2 * w, yShift + 2 * h + s);
-            // 2. Use string interpolation instead of DefaultInterpolatedStringHandler
-            if (infoButton != null)
-                infoButton.text = $"$Risk = {riskInAmount}, TP reward = {rewardMultiplier}";
-            // update brushes
-            limitBackBrush = new SolidBrush(limitButtonPairColor.Color1);
-            limitBorderPen = new Pen(limitButtonPairColor.Color2);
-            marketBackBrush = new SolidBrush(marketButtonPairColor.Color1);
-            marketBorderPen = new Pen(marketButtonPairColor.Color2);
-            textBrush = new SolidBrush(fontColor);
-            infoBackBrush = new SolidBrush(infoButtonPairColor.Color1);
-            infoBorderPen = new Pen(infoButtonPairColor.Color2);
-            infoTextBrush = new SolidBrush(infoFontColor);
-            cancelBackBrush = new SolidBrush(cancelButtonPairColor.Color1);
-            cancelBorderPen = new Pen(cancelButtonPairColor.Color2);
-            // 2b. Set ShortName via interpolation
-            ShortName = $"{Name}({riskInAmount},{rewardMultiplier})";
+            Color1 = Color.FromArgb(216, 108, 0),    // darker “back”
+            Color2 = Color.FromArgb(196, 100, 0)     // darker “border”
+        };
+        readonly PairColor partCol = new PairColor { Color1 = Color.Green, Color2 = Color.DarkGreen };
+        readonly PairColor smallCol = new PairColor { Color1 = Color.FromArgb(50, 50, 60), Color2 = Color.Gray };
+
+        readonly Font titleFont = new Font("Segoe UI", 14, FontStyle.Bold);
+        readonly Font mainFont = new Font("Segoe UI", 12, FontStyle.Regular);
+        readonly Font smallFont = new Font("Segoe UI", 10, FontStyle.Regular);
+        readonly Brush textBrush = Brushes.White;
+
+        // static so nested Button can reference
+        private static readonly StringFormat CenterFormat = new StringFormat
+        {
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Center
+        };
+        private static readonly StringFormat LeftFormat = new StringFormat
+        {
+            Alignment = StringAlignment.Near,
+            LineAlignment = StringAlignment.Center
+        };
+
+        //── RUNTIME STATE ────────────────────────────────────────────────────────────
+        Brush sellBack, buyBack, beBack, partBack, smallBack;
+        Pen sellPen, buyPen, bePen, partPen, smallPen;
+
+        Button sellBtn, buyBtn;
+        Button[] lotRadios;
+        Rectangle cashBox;
+        Button beBtn, partBtn;
+        Button btnAll, btnProfit, btnLoss, btnStop;
+        Rectangle labelCloseTrades, labelCloseOrders;
+
+        int quantity = 100;
+        double pipL = 2936.0, pipR = 2795.0;
+        double cashAmt = 20.0, beVal = 0.0;
+
+        enum LotMode { None, Cash, RiskBal, RiskEq }
+        LotMode lotMode = LotMode.Cash;
+
+        //──────────────────────────────────────────────────────────────────────────────
+        public OrderPlacingTool()
+        {
+            Name = "Trade Manager";
+            Description = "In-chart Trade Manager panel";
+            SeparateWindow = false;
+            AddLineSeries("dummy", Color.Transparent, 1, LineStyle.Solid);
+            BuildBrushesAndPens();
         }
 
-        // 5. Mark override
+        void BuildBrushesAndPens()
+        {
+            sellBack = new SolidBrush(sellCol.Color1);
+            sellPen = new Pen(sellCol.Color2);
+            buyBack = new SolidBrush(buyCol.Color1);
+            buyPen = new Pen(buyCol.Color2);
+            beBack = new SolidBrush(beCol.Color1);
+            bePen = new Pen(beCol.Color2);
+            partBack = new SolidBrush(partCol.Color1);
+            partPen = new Pen(partCol.Color2);
+            smallBack = new SolidBrush(smallCol.Color1);
+            smallPen = new Pen(smallCol.Color2);
+        }
+
+        protected override void OnInit()
+        {
+            int X = xShift, Y = yShift;
+
+            // Row1: SELL | qty | BUY
+            sellBtn = new Button("SELL",
+                X, Y + headerH,
+                X + (panelW - gutter) / 2, Y + headerH + row1H,
+                sellBack, sellPen, mainFont, textBrush);
+
+            buyBtn = new Button("BUY",
+                X + (panelW + gutter) / 2, Y + headerH,
+                X + panelW, Y + headerH + row1H,
+                buyBack, buyPen, mainFont, textBrush);
+
+            // Row3: Lot-Calc radios + cash input
+            int radioX = X + gutter;
+            int startLotY = Y + headerH + row1H + row2H + gutter;
+            int rowHeight = row3H + gutter;
+            int lotCount = 4;  // we have 4 radio buttons
+
+            lotRadios = new[]
+            {
+    new Button("None",
+        radioX, startLotY + 0*rowHeight,
+        radioX + radioSize, startLotY + 0*rowHeight + radioSize,
+        smallBack, smallPen, smallFont, textBrush,
+        circle: true),
+
+    new Button("Cash Amount",
+        radioX, startLotY + 1*rowHeight,
+        radioX + radioSize, startLotY + 1*rowHeight + radioSize,
+        smallBack, smallPen, smallFont, textBrush,
+        circle: true),
+    new Button(
+    "Risk Balance",
+    radioX,
+    startLotY + 2 * rowHeight,
+    radioX + radioSize,
+    startLotY + 2 * rowHeight + radioSize,
+    smallBack, smallPen, smallFont, textBrush,
+    circle: true
+),
+new Button(
+    "Risk Equity",
+    radioX,
+    startLotY + 3 * rowHeight,
+    radioX + radioSize,
+    startLotY + 3 * rowHeight + radioSize,
+    smallBack, smallPen, smallFont, textBrush,
+    circle: true
+)
+};
+
+            // width of the text‐box
+            const int cashBoxWidth = 80;
+            // 8px gutter to the right edge, plus say another 4px padding for the “USD” label
+            int usdLabelWidth = 40;
+
+            cashBox = new Rectangle(
+                // panelX + panelW  gives us the right edge of the panel
+                // subtract gutter (8px), the USD label width (40px) and the box width
+                X + panelW - gutter - usdLabelWidth - cashBoxWidth,
+                // same Y as before
+                startLotY + 1 * rowHeight + 4,
+                cashBoxWidth,
+                row3H - 8
+            );
+
+            // Row4: Break-Even & Partial now pushed below the entire Lot-Calc block
+            int BY = startLotY + lotCount * rowHeight + gutter;
+            // instantiate the two buttons at the new BY
+            beBtn = new Button(
+                "Move SL To BE",
+                 X + gutter, BY,
+                 X + 160, BY + row4H,
+                 beBack, bePen, smallFont, textBrush
+            );
+
+            partBtn = new Button(
+                "Close Part",
+                 X + 176, BY,
+                 X + 296, BY + row4H,
+                 partBack, partPen, smallFont, textBrush
+            );
+
+            int PY = BY + row4H;
+
+            // place labels immediately below the BE & Partial-Close buttons
+            int labelY = BY + row4H + gutter;
+
+            labelCloseTrades = new Rectangle(
+                X + gutter,
+                labelY,
+                120,
+                20
+            );
+            labelCloseOrders = new Rectangle(
+                X + panelW - 140,
+                labelY,
+                120,
+                20
+            );
+
+            // Row6 Buttons (immediately under the labels)
+            int btnRowY = labelY + 20 + gutter;  // 20px label height + gutter
+
+            btnAll = new Button("All",
+                             X + gutter, btnRowY,
+                             X + 60, btnRowY + row2H,
+                             smallBack, smallPen, smallFont, textBrush);
+
+            btnProfit = new Button("Profit",
+                             X + 68, btnRowY,
+                             X + 128, btnRowY + row2H,
+                             smallBack, smallPen, smallFont, textBrush);
+
+            btnLoss = new Button("Loss",
+                             X + 136, btnRowY,
+                             X + 196, btnRowY + row2H,
+                             smallBack, smallPen, smallFont, textBrush);
+
+            btnStop = new Button("Stop",
+                             X + panelW - 68, btnRowY,
+                             X + panelW - gutter, btnRowY + row2H,
+                             smallBack, smallPen, smallFont, textBrush);
+
+
+
+
+            // Subscribe for clicks if needed:
+            CurrentChart.MouseClick += CurrentChart_MouseClick;
+        }
+
         public override void Dispose()
         {
-            Core.Instance.Loggers.Log("Dispose()", LoggingLevel.System, null);
-            if (isMouseRegistered)
-            {
-                isMouseRegistered = false;
-                CurrentChart.MouseClick -= CurrentChart_MouseClick;
-                CurrentChart.AccountChanged -= CurrentChart_AccountChanged;
-                ExecutionEntity.Core.OrderAdded -= Core_OrderAdded;
-                ExecutionEntity.Core.OrdersHistoryAdded -= Core_OrdersHistoryAdded;
-            }
-            limitButton = null;
-            marketButton = null;
-            infoButton = null;
+            CurrentChart.MouseClick -= CurrentChart_MouseClick;
             base.Dispose();
         }
 
-        public OrderPlacingTool()
-        {
-            Name = "MBS Order Placing Tool";
-            Description = DESCRIPTION;
-            AddLineSeries("line1", Color.CadetBlue, 1, LineStyle.Solid);
-            SeparateWindow = false;
-        }
+        protected override void OnUpdate(UpdateArgs args) { }
 
-        // 5. Mark override
-        protected override void OnInit()
-        {
-            initFailed = false;
-            int w = 100, h = 40, s = 10;
-            if (limitButton == null)
-                limitButton = new Button("Limit", xShift, yShift, xShift + w, yShift + h, false);
-            if (marketButton == null)
-                marketButton = new Button("Market", xShift + w + s, yShift, xShift + 2 * w + s, yShift + h, false);
-            if (infoButton == null)
-                infoButton = new Button($"$Risk = {riskInAmount}, TP reward = {rewardMultiplier}",
-                    xShift + (w + s) / 2, yShift + h + s, xShift + (w + s) / 2 + 2 * w, yShift + 2 * h + s, false);
-            if (!isMouseRegistered)
-            {
-                isMouseRegistered = true;
-                CurrentChart.MouseClick += CurrentChart_MouseClick;
-                CurrentChart.AccountChanged += CurrentChart_AccountChanged;
-                ExecutionEntity.Core.OrderAdded += Core_OrderAdded;
-                ExecutionEntity.Core.OrdersHistoryAdded += Core_OrdersHistoryAdded;
-            }
-            tradeParams.symbol = HistoricalData.Symbol;
-            tradeParams.account = CurrentChart.Account;
-            limitBackBrush ??= new SolidBrush(limitButtonPairColor.Color1);
-            limitBorderPen ??= new Pen(limitButtonPairColor.Color2);
-            marketBackBrush ??= new SolidBrush(marketButtonPairColor.Color1);
-            marketBorderPen ??= new Pen(marketButtonPairColor.Color2);
-            textBrush ??= new SolidBrush(fontColor);
-            infoBackBrush ??= new SolidBrush(infoButtonPairColor.Color1);
-            infoBorderPen ??= new Pen(infoButtonPairColor.Color2);
-            infoTextBrush ??= new SolidBrush(infoFontColor);
-            cancelBackBrush ??= new SolidBrush(cancelButtonPairColor.Color1);
-            cancelBorderPen ??= new Pen(cancelButtonPairColor.Color2);
-        }
-
-        // 5. Mark override
-        protected override void OnUpdate(UpdateArgs args)
-        {
-            // no update logic
-        }
-
-        // 5. Mark override
         public override void OnPaintChart(PaintChartEventArgs args)
         {
-            if (initFailed || HistoricalData.Count != Count)
+            if (HistoricalData.Count != Count)
                 return;
-            base.OnPaintChart(args);
-            var graphics = args.Graphics;
-            var clipBounds = graphics.ClipBounds;
-            // 4. Add CombineMode
-            graphics.SetClip(args.Rectangle, CombineMode.Replace);
-            try
-            {
-                if (limitButton != null)
-                {
-                    graphics.FillRectangle(limitButton.text == "Cancel" ? cancelBackBrush : limitBackBrush,
-                        limitButton.x1, limitButton.y1, limitButton.x2 - limitButton.x1, limitButton.y2 - limitButton.y1);
-                    graphics.DrawRectangle(limitButton.text == "Cancel" ? cancelBorderPen : limitBorderPen,
-                        limitButton.x1, limitButton.y1, limitButton.x2 - limitButton.x1, limitButton.y2 - limitButton.y1);
-                    graphics.DrawString(limitButton.text, font, textBrush,
-                        (float)((limitButton.x1 + limitButton.x2) / 2),
-                        (float)((limitButton.y1 + limitButton.y2) / 2), stringFormat);
-                }
-                if (marketButton != null)
-                {
-                    graphics.FillRectangle(marketButton.text == "Cancel" ? cancelBackBrush : marketBackBrush,
-                        marketButton.x1, marketButton.y1, marketButton.x2 - marketButton.x1, marketButton.y2 - marketButton.y1);
-                    graphics.DrawRectangle(marketButton.text == "Cancel" ? cancelBorderPen : marketBorderPen,
-                        marketButton.x1, marketButton.y1, marketButton.x2 - marketButton.x1, marketButton.y2 - marketButton.y1);
-                    graphics.DrawString(marketButton.text, font, textBrush,
-                        (float)((marketButton.x1 + marketButton.x2) / 2),
-                        (float)((marketButton.y1 + marketButton.y2) / 2), stringFormat);
-                }
-                if (infoButton == null)
-                    return;
-                graphics.FillRectangle(infoBackBrush,
-                    infoButton.x1, infoButton.y1, infoButton.x2 - infoButton.x1, infoButton.y2 - infoButton.y1);
-                graphics.DrawRectangle(infoBorderPen,
-                    infoButton.x1, infoButton.y1, infoButton.x2 - infoButton.x1, infoButton.y2 - infoButton.y1);
-                graphics.DrawString(infoButton.text, infoFont, infoTextBrush,
-                    (float)((infoButton.x1 + infoButton.x2) / 2),
-                    (float)((infoButton.y1 + infoButton.y2) / 2), stringFormat);
-            }
-            finally
-            {
-                // restore region
-                graphics.SetClip(clipBounds, CombineMode.Replace);
-            }
-        }
-        private void CurrentChart_AccountChanged(object sender, ChartEventArgs e)
-        {
-            // keep your tradeParams.account in sync
-            this.tradeParams.account = this.CurrentChart.Account;
-        }
 
-        private void Core_OrderAdded(Order obj) { }
-        private void Core_OrdersHistoryAdded(OrderHistory obj) { }
+            var g = args.Graphics;
+            var r = args.Rectangle;
+            int X = xShift, Y = yShift;
 
-        private void CurrentChart_MouseClick(object sender, ChartMouseNativeEventArgs mouse)
-        {
-            if (initFailed || mouse == null || CurrentChart == null || CurrentChart.Account == null ||
-                !CurrentChart.MainWindow.ClientRectangle.Contains(((NativeMouseEventArgs)mouse).Location) ||
-                ((NativeMouseEventArgs)mouse).Button != NativeMouseButtons.Left ||
-                tradeParams.symbol == null || tradeParams.account == null ||
-                DoubleExtensions.IsNanOrDefault(tradeParams.symbol.TickSize))
-                return;
-            int x = ((NativeMouseEventArgs)mouse).X;
-            int y = ((NativeMouseEventArgs)mouse).Y;
-            if (limitButton.Contains(x, y))
+            int panelBottom = btnStop.Y2 + gutter;
+            // our rectangle starts at Y-4, so its height is panelBottom - (Y - 4)
+            float panelHeight = panelBottom - (Y - 4);
+
+            var rect = new RectangleF(
+                X - 4,
+                Y - 4,
+                panelW + 8,
+                panelHeight
+            );
+
+            // 1) Panel background & rounded border
+            using (var path = new GraphicsPath())
             {
-                if (limitButton.isClicked)
-                {
-                    limitButton.isClicked = false;
-                    limitButton.text = "Limit";
-                    tradeParams.Reset();
-                }
-                else
-                {
-                    limitButton.isClicked = true;
-                    limitButton.text = "Cancel";
-                    marketButton.Reset("Market");
-                }
+                float d = btnRadius;
+                path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+                path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+                path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+                path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+                path.CloseAllFigures();
+
+                using (var br = new SolidBrush(panelBack))
+                    g.FillPath(br, path);
+                g.DrawPath(new Pen(borderCol), path);
             }
-            else if (marketButton.Contains(x, y))
+            // 2) Header bar
+            var hdr = new Rectangle(X, Y, panelW, headerH);
+            using (var br = new SolidBrush(headerBack))
+                g.FillRectangle(br, hdr);
+            g.DrawString("Trade Manager", titleFont, textBrush,
+                         X + panelW / 2, Y + headerH / 2, CenterFormat);
+
+            // 3) Row1: SELL / qty / BUY
+            sellBtn.Draw(g, btnRadius);
+            buyBtn.Draw(g, btnRadius);
+            g.DrawString(quantity.ToString(), mainFont, textBrush,
+                         X + panelW / 2, Y + headerH + row1H / 2, CenterFormat);
+
+            // 4) Row2: Pips bar
+            var p2 = new Rectangle(X + gutter,
+                Y + headerH + row1H,
+                panelW - gutter * 2,
+                row2H);
+            g.DrawRectangle(Pens.Gray, p2);
+            // left
+            g.DrawString(pipL.ToString("F1"), mainFont, textBrush,
+                         p2.X + (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
+            // center
+            g.DrawString("Pips", mainFont, textBrush,
+                         p2.X + p2.Width / 2, p2.Y + row2H / 2, CenterFormat);
+            // right
+            g.DrawString(pipR.ToString("F1"), mainFont, textBrush,
+                         p2.Right - (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
+
+            // 5) Row3: Lot-Calc + Cash
+            foreach (var b in lotRadios)
             {
-                if (marketButton.isClicked)
-                {
-                    marketButton.isClicked = false;
-                    marketButton.text = "Market";
-                    tradeParams.Reset();
-                }
-                else
-                {
-                    marketButton.isClicked = true;
-                    marketButton.text = "Cancel";
-                    limitButton.Reset("Limit");
-                }
+                b.DrawCircle(g, btnRadius);
+                g.DrawString(b.Text, smallFont, textBrush,
+                    b.X1 + b.Width + 4,
+                    b.Y1 + row3H / 2,
+                    LeftFormat);
             }
-            else
-            {
-                // price selection logic
-                if (limitButton.isClicked)
-                {
-                    var mainWindow = CurrentChart.MainWindow;
-                    if (tradeParams.price == 0) tradeParams.price = mainWindow.CoordinatesConverter.GetPrice(y);
-                    else if (tradeParams.slPrice == 0) tradeParams.slPrice = mainWindow.CoordinatesConverter.GetPrice(y);
-                    if (tradeParams.price != 0 && tradeParams.slPrice != 0)
-                    {
-                        tradeParams.orderTypeId = "Limit";
-                        // 3. Check against Side.Buy rather than null
-                        tradeParams.side = tradeParams.price > tradeParams.slPrice ? Side.Buy : Side.Sell;
-                        tradeParams.price = tradeParams.symbol.RoundPriceToTickSize(tradeParams.price, double.NaN);
-                        tradeParams.slPrice = tradeParams.symbol.RoundPriceToTickSize(tradeParams.slPrice, double.NaN);
-                        double slTicks = tradeParams.side == Side.Buy
-                            ? (tradeParams.price - tradeParams.slPrice) / tradeParams.symbol.TickSize
-                            : (tradeParams.slPrice - tradeParams.price) / tradeParams.symbol.TickSize;
-                        double tpTicks = slTicks * rewardMultiplier;
-                        tradeParams.lotSize = GetVolumeByFixedAmount(tradeParams.symbol, riskInAmount, slTicks);
-                        Task.Run(() =>
-                        {
-                            var req = new PlaceOrderRequestParameters();
-                            req.Symbol = tradeParams.symbol;
-                            req.Account = tradeParams.account;
-                            req.OrderTypeId = tradeParams.orderTypeId;
-                            req.Side = tradeParams.side;
-                            req.Price = tradeParams.price;
-                            req.Quantity = tradeParams.lotSize;
-                            req.StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN);
-                            req.TakeProfit = rewardMultiplier > 0
-                                ? SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
-                                : null;
-                            tradingOperationResult = Core.PlaceOrder(req);
-                            tradeParams.Reset();
-                        });
-                    }
-                }
-                else if (marketButton.isClicked)
-                {
-                    var mainWindow = CurrentChart.MainWindow;
-                    tradeParams.price = tradeParams.symbol.Bid;
-                    if (tradeParams.slPrice == 0) tradeParams.slPrice = mainWindow.CoordinatesConverter.GetPrice(y);
-                    if (tradeParams.price != 0 && tradeParams.slPrice != 0)
-                    {
-                        tradeParams.orderTypeId = "Market";
-                        tradeParams.side = tradeParams.price > tradeParams.slPrice ? Side.Buy : Side.Sell;
-                        tradeParams.price = tradeParams.symbol.RoundPriceToTickSize(tradeParams.price, double.NaN);
-                        tradeParams.slPrice = tradeParams.symbol.RoundPriceToTickSize(tradeParams.slPrice, double.NaN);
-                        double slTicks = tradeParams.side == Side.Buy
-                            ? (tradeParams.price - tradeParams.slPrice) / tradeParams.symbol.TickSize
-                            : (tradeParams.slPrice - tradeParams.price) / tradeParams.symbol.TickSize;
-                        double tpTicks = slTicks * rewardMultiplier;
-                        tradeParams.lotSize = GetVolumeByFixedAmount(tradeParams.symbol, riskInAmount, slTicks);
-                        Task.Run(() =>
-                        {
-                            var req = new PlaceOrderRequestParameters();
-                            req.Symbol = tradeParams.symbol;
-                            req.Account = tradeParams.account;
-                            req.OrderTypeId = tradeParams.orderTypeId;
-                            req.Side = tradeParams.side;
-                            req.Quantity = tradeParams.lotSize;
-                            req.StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN);
-                            req.TakeProfit = rewardMultiplier > 0
-                                ? SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
-                                : null;
-                            tradingOperationResult = Core.PlaceOrder(req);
-                            tradeParams.Reset();
-                        });
-                    }
-                }
-            }
+            // draw the grey box
+            using (var br = new SolidBrush(panelBack))
+                g.FillRectangle(br, cashBox);
+            g.DrawRectangle(Pens.Gray, cashBox);
+
+            // draw the number centered
+            g.DrawString(cashAmt.ToString("F2"), smallFont, textBrush,
+                         cashBox.X + cashBox.Width / 2,
+                         cashBox.Y + cashBox.Height / 2,
+                         CenterFormat);
+
+            // draw the “USD” just to the right of it
+            g.DrawString("USD", smallFont, textBrush,
+                         cashBox.Right + 4,  // small 4px gap
+                         cashBox.Y + cashBox.Height / 2,
+                         LeftFormat);
+
+
+            // 6) Row4: Break-Even & Partial
+            beBtn.Draw(g, btnRadius);
+            g.DrawString(beVal.ToString("F1"), smallFont, textBrush,
+                         beBtn.X2 + 30,
+                         beBtn.Y1 + row4H / 2,
+                         CenterFormat);
+            partBtn.Draw(g, btnRadius);
+
+            // 7) Row5: Labels (above buttons)
+            g.DrawString("Close Trades", mainFont, textBrush,
+                         labelCloseTrades, LeftFormat);
+            g.DrawString("Close Orders", mainFont, textBrush,
+                         labelCloseOrders, LeftFormat);
+
+            // 8) Row6: All / Profit / Loss / Stop (below labels)
+            btnAll.Draw(g, btnRadius);
+            btnProfit.Draw(g, btnRadius);
+            btnLoss.Draw(g, btnRadius);
+            btnStop.Draw(g, btnRadius);
+
+
+
+
+            // restore clip
+            g.SetClip(r, CombineMode.Replace);
         }
 
-        private double GetVolumeByFixedAmount(Symbol symbol, int amountToRisk, double slTicks)
-        {
-            if (DoubleExtensions.IsNanOrDefault(symbol.Bid) || DoubleExtensions.IsNanOrDefault(symbol.TickSize))
-                return 0;
-            double num1 = symbol.GetTickCost(symbol.Bid) * slTicks;
-            double num2 = (double)amountToRisk / num1;
-            var loggers = Core.Instance.Loggers;
-            loggers.Log($"symbol={symbol}, amountToRisk={amountToRisk}, slTicks={slTicks}, tickSize={symbol.TickSize}, tickCost={symbol.GetTickCost(symbol.Bid)}, calculatedLotSize={num2}", LoggingLevel.System, null);
-            double minLot = symbol.MinLot;
-            double maxLot = symbol.MaxLot;
-            double lotStep = symbol.LotStep;
-            double adjusted = Math.Max(0, num2 - minLot);
-            int steps = (int)(adjusted / lotStep);
-            double volumeByFixedAmount = minLot + steps * lotStep;
-            if (volumeByFixedAmount < minLot) volumeByFixedAmount = minLot;
-            if (volumeByFixedAmount > maxLot) volumeByFixedAmount = maxLot;
-            return volumeByFixedAmount;
-        }
+        void CurrentChart_MouseClick(object _, ChartMouseNativeEventArgs __) { /* … */ }
 
+        //── Button helper ───────────────────────────────────────────────────────────
+        //── Button helper ────────────────────────────────────────────────────────────
         private class Button
         {
-            public string text;
-            public int x1;
-            public int y1;
-            public int x2;
-            public int y2;
-            public bool isClicked;
+            public string Text;
+            public int X1, Y1, X2, Y2;
+            private readonly Brush back;
+            private readonly Pen border;
+            private readonly Font font;
+            private readonly Brush txtBrush;
+            private readonly bool isCircle;
 
-            public Button(string text, int x1, int y1, int x2, int y2, bool isClicked)
+            // <-- notice the final "bool circle = false" parameter
+            public Button(
+                string text,
+                int x1, int y1,
+                int x2, int y2,
+                Brush back,
+                Pen border,
+                Font font,
+                Brush txtBrush,
+                bool circle = false    // default false, but allows you to pass circle:true
+            )
             {
-                this.text = text;
-                this.x1 = x1;
-                this.y1 = y1;
-                this.x2 = x2;
-                this.y2 = y2;
-                this.isClicked = isClicked;
+                Text = text;
+                X1 = x1;
+                Y1 = y1;
+                X2 = x2;
+                Y2 = y2;
+                this.back = back;
+                this.border = border;
+                this.font = font;
+                this.txtBrush = txtBrush;
+                this.isCircle = circle;
             }
 
-            public void Set(int x1, int y1, int x2, int y2)
+            public int Width => X2 - X1;
+            public int Height => Y2 - Y1;
+
+            public void Draw(Graphics g, int radius = 0)
             {
-                this.x1 = x1;
-                this.y1 = y1;
-                this.x2 = x2;
-                this.y2 = y2;
+                if (isCircle)
+                    return;
+
+                using (var path = new GraphicsPath())
+                {
+                    float d = radius;
+                    path.AddArc(X1, Y1, d, d, 180, 90);
+                    path.AddArc(X2 - d, Y1, d, d, 270, 90);
+                    path.AddArc(X2 - d, Y2 - d, d, d, 0, 90);
+                    path.AddArc(X1, Y2 - d, d, d, 90, 90);
+                    path.CloseAllFigures();
+
+                    g.FillPath(back, path);
+                    g.DrawPath(border, path);
+                }
+
+                g.DrawString(
+                    Text,
+                    font,
+                    txtBrush,
+                    X1 + Width / 2,
+                    Y1 + Height / 2,
+                    OrderPlacingTool.CenterFormat
+                );
+            }
+
+            public void DrawCircle(Graphics g, int _)
+            {
+                var dia = Height;
+                var rect = new Rectangle(X1, Y1, dia, dia);
+
+                g.DrawEllipse(border, rect);
+                if (isCircle)
+                    g.FillEllipse(back, rect);
             }
 
             public bool Contains(int x, int y)
-            {
-                return x >= x1 && x < x2 && y >= y1 && y < y2;
-            }
-
-            public void Reset(string text)
-            {
-                this.text = text;
-                this.isClicked = false;
-            }
+                => x >= X1 && x < X2 && y >= Y1 && y < Y2;
         }
 
-        private class TradeParams
-        {
-            public Symbol symbol;
-            public Account account;
-            public string orderTypeId;
-            public Side side;
-            public double lotSize;
-            public double price;
-            public double slPrice;
-            public double tpPrice;
-
-            public void Reset()
-            {
-                this.orderTypeId = null;
-                this.side = Side.Buy;
-                this.lotSize = 0;
-                this.price = 0;
-                this.slPrice = 0;
-                this.tpPrice = 0;
-            }
-        }
     }
 }
