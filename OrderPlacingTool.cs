@@ -69,7 +69,7 @@ namespace OrderPlacingTool
         //── LAYOUT CONSTANTS ─────────────────────────────────────────────────────────
         const int panelW = 320;
         const int headerH = 36;
-        const int row1H = 56;
+        const int row1H = 37;
         const int row2H = 36;
         const int row3H = 36;
         const int row4H = 44;
@@ -81,8 +81,16 @@ namespace OrderPlacingTool
         readonly Color panelBack = Color.FromArgb(30, 30, 40);
         readonly Color headerBack = Color.FromArgb(20, 20, 30);
         readonly Color borderCol = Color.Gray;
-        readonly PairColor sellCol = new PairColor { Color1 = Color.Red, Color2 = Color.DarkRed };
-        readonly PairColor buyCol = new PairColor { Color1 = Color.Green, Color2 = Color.DarkGreen };
+        readonly PairColor sellCol = new PairColor
+        {
+            Color1 = Color.FromArgb(0xD1, 0x4F, 0x4A),  // #D14F4A
+            Color2 = Color.FromArgb(0xB6, 0x3F, 0x3A)   // #B63F3A
+        };
+        readonly PairColor buyCol = new PairColor
+        {
+            Color1 = Color.FromArgb(0x2F, 0xA4, 0x66),  // #2FA466
+            Color2 = Color.FromArgb(0x27, 0x86, 0x53)   // #278653
+        };
         readonly PairColor beCol = new PairColor
         {
             Color1 = Color.FromArgb(216, 108, 0),    // darker “back”
@@ -154,16 +162,27 @@ namespace OrderPlacingTool
         {
             int X = xShift, Y = yShift;
 
-            // Row1: SELL | qty | BUY
-            sellBtn = new Button("SELL",
-                X, Y + headerH,
-                X + (panelW - gutter) / 2, Y + headerH + row1H,
-                sellBack, sellPen, mainFont, textBrush);
+            const int headerBtnW = 120;  // <-- desired width
 
-            buyBtn = new Button("BUY",
-                X + (panelW + gutter) / 2, Y + headerH,
-                X + panelW, Y + headerH + row1H,
-                buyBack, buyPen, mainFont, textBrush);
+            // Row1: SELL | qty | BUY
+            sellBtn = new Button(
+                "SELL",
+                X + gutter,              // left edge
+                Y + headerH,             // top edge
+                X + gutter + headerBtnW, // right edge = left + width
+                Y + headerH + row1H,     // bottom edge
+                sellBack, sellPen, mainFont, textBrush
+            );
+
+            // push the BUY button to the right of center by the same width:
+            buyBtn = new Button(
+                "BUY",
+                X + panelW - gutter - headerBtnW, // left edge = panel right minus gutter minus width
+                Y + headerH,                       // top edge
+                X + panelW - gutter,              // right edge
+                Y + headerH + row1H,              // bottom edge
+                buyBack, buyPen, mainFont, textBrush
+            );
 
             // Row3: Lot-Calc radios + cash input
             int radioX = X + gutter;
