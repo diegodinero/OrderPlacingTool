@@ -79,7 +79,7 @@ namespace OrderPlacingTool
 
         //── COLORS & FONTS ───────────────────────────────────────────────────────────
         readonly Color panelBack = Color.FromArgb(20, 30, 40);
-        readonly Color headerBack = Color.FromArgb(20, 20, 30);
+        readonly Color headerBack = Color.FromArgb(41, 50, 60);
         readonly Color borderCol = Color.Gray;
         readonly PairColor sellCol = new PairColor
         {
@@ -97,12 +97,14 @@ namespace OrderPlacingTool
             Color2 = Color.FromArgb(196, 100, 0)     // darker “border”
         };
         readonly PairColor partCol = new PairColor { Color1 = Color.Green, Color2 = Color.DarkGreen };
-        readonly PairColor smallCol = new PairColor { Color1 = Color.FromArgb(50, 50, 60), Color2 = Color.Gray };
+        readonly PairColor smallCol = new PairColor { Color1 = Color.FromArgb(41, 50, 60), Color2 = Color.Gray };
 
         readonly Font titleFont = new Font("Segoe UI", 14, FontStyle.Bold);
         readonly Font mainFont = new Font("Segoe UI", 12, FontStyle.Bold);
         readonly Font smallFont = new Font("Segoe UI", 12, FontStyle.Regular);
         readonly Brush textBrush = Brushes.White;
+
+        readonly Color textBoxBackCol = Color.FromArgb(41, 50, 60);
 
         // static so nested Button can reference
         private static readonly StringFormat CenterFormat = new StringFormat
@@ -126,6 +128,7 @@ namespace OrderPlacingTool
         Button beBtn, partBtn;
         Button btnAll, btnProfit, btnLoss, btnStop;
         Rectangle labelCloseTrades, labelCloseOrders;
+        Brush textBoxBack;
 
         int quantity = 100;
         double pipL = 2936.0, pipR = 2795.0;
@@ -157,6 +160,7 @@ namespace OrderPlacingTool
             partPen = new Pen(partCol.Color2);
             smallBack = new SolidBrush(smallCol.Color1);
             smallPen = new Pen(smallCol.Color2);
+            textBoxBack = new SolidBrush(textBoxBackCol);
         }
 
         protected override void OnInit()
@@ -395,7 +399,7 @@ X + panelW - gutter, BY + breakBtnH,
     row2H);
             using (var path = RoundedRect(p2, btnRadius))
             {
-                using (var br = new SolidBrush(panelBack))
+                using (var br = new SolidBrush(textBoxBackCol))
                     g.FillPath(br, path);
                 g.DrawPath(Pens.Gray, path);
             }
@@ -465,7 +469,7 @@ X + panelW - gutter, BY + breakBtnH,
             var cashRectF = new RectangleF(cashBox.X, cashBox.Y, cashBox.Width, cashBox.Height);
             using (var path = RoundedRect(cashRectF, btnRadius))
             {
-                using (var br = new SolidBrush(panelBack))
+                using (var br = new SolidBrush(textBoxBackCol))
                     g.FillPath(br, path);
                 g.DrawPath(Pens.Gray, path);
             }
@@ -525,7 +529,7 @@ X + panelW - gutter, BY + breakBtnH,
             var beRectF = new RectangleF(beValueBox.X, beValueBox.Y, beValueBox.Width, beValueBox.Height);
             using (var path = RoundedRect(beRectF, btnRadius))
             {
-                using (var br = new SolidBrush(panelBack))
+                using (var br = new SolidBrush(textBoxBackCol))
                     g.FillPath(br, path);
                 g.DrawPath(Pens.Gray, path);
             }
