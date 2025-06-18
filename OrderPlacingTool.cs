@@ -78,6 +78,7 @@ namespace OrderPlacingTool
         const int radioSize = 14;
 
         //── COLORS & FONTS ───────────────────────────────────────────────────────────
+        readonly Color pipsAndCurrency = Color.FromArgb(184, 205, 228);
         readonly Color panelBack = Color.FromArgb(20, 30, 40);
         readonly Color headerBack = Color.FromArgb(41, 50, 60);
         readonly Color borderCol = Color.Gray;
@@ -407,8 +408,17 @@ X + panelW - gutter, BY + breakBtnH,
             g.DrawString(pipL.ToString("F1"), mainFont, textBrush,
                          p2.X + (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
             // center
-            g.DrawString("Pips", mainFont, textBrush,
-                         p2.X + p2.Width / 2, p2.Y + row2H / 2, CenterFormat);
+            using (var b = new SolidBrush(pipsAndCurrency))
+            {
+                g.DrawString(
+                  "Pips",
+                  mainFont,
+                  b,
+                  p2.X + p2.Width / 2,
+                  p2.Y + row2H / 2,
+                  CenterFormat
+                );
+            }
             // right
             g.DrawString(pipR.ToString("F1"), mainFont, textBrush,
                          p2.Right - (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
@@ -481,15 +491,18 @@ X + panelW - gutter, BY + breakBtnH,
                 cashBox.Y + cashBox.Height / 2,
                 CenterFormat
             );
-            g.DrawString(
+
+            using (var b = new SolidBrush(pipsAndCurrency))
+            {
+                g.DrawString(
                 "USD",
                 smallFont,
-                textBrush,
+                b,
                 cashBox.Right + 4,
                 cashBox.Y + cashBox.Height / 2,
                 LeftFormat
-            );
-
+               );
+            }
             // 6) BREAK-EVEN & PARTIAL  
             //    find the top of that button row:
             int BY = radioStartY
