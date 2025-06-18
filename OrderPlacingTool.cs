@@ -73,7 +73,7 @@ namespace OrderPlacingTool
         const int row2H = 36;
         const int row3H = 36;
         const int row4H = 44;
-        const int btnRadius = 6;
+        const int btnRadius = 16;
         const int gutter = 8;
         const int radioSize = 14;
 
@@ -390,7 +390,12 @@ X + panelW - gutter, BY + breakBtnH,
     Y + headerH + row1H + 10,      // ← moved down 10px
     panelW - gutter * 2,
     row2H);
-            g.DrawRectangle(Pens.Gray, p2);
+            using (var path = RoundedRect(p2, btnRadius))
+            {
+                using (var br = new SolidBrush(panelBack))
+                    g.FillPath(br, path);
+                g.DrawPath(Pens.Gray, path);
+            }
             // left
             g.DrawString(pipL.ToString("F1"), mainFont, textBrush,
                          p2.X + (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
@@ -454,9 +459,13 @@ X + panelW - gutter, BY + breakBtnH,
 
             // 5) CASH BOX (positioned alongside the “Cash Amount” radio)
             cashBox.Y = radioStartY + 1 * (radioSize + gutter) + 4;
-            using (var br = new SolidBrush(panelBack))
-                g.FillRectangle(br, cashBox);
-            g.DrawRectangle(Pens.Gray, cashBox);
+            var cashRectF = new RectangleF(cashBox.X, cashBox.Y, cashBox.Width, cashBox.Height);
+            using (var path = RoundedRect(cashRectF, btnRadius))
+            {
+                using (var br = new SolidBrush(panelBack))
+                    g.FillPath(br, path);
+                g.DrawPath(Pens.Gray, path);
+            }
             g.DrawString(
                 cashAmt.ToString("F2"),
                 smallFont,
@@ -510,9 +519,14 @@ X + panelW - gutter, BY + breakBtnH,
                 partBtn.X1 - beBtn.X2 - (gutter * 2),
                 breakBtnH
             );
-            using (var br = new SolidBrush(panelBack))
-                g.FillRectangle(br, beValueBox);
-            g.DrawRectangle(Pens.Gray, beValueBox);
+            var beRectF = new RectangleF(beValueBox.X, beValueBox.Y, beValueBox.Width, beValueBox.Height);
+            using (var path = RoundedRect(beRectF, btnRadius))
+            {
+                using (var br = new SolidBrush(panelBack))
+                    g.FillPath(br, path);
+                g.DrawPath(Pens.Gray, path);
+            }
+            
             g.DrawString(
                 beVal.ToString("F1"),
                 smallFont,
@@ -564,6 +578,22 @@ X + panelW - gutter, BY + breakBtnH,
         }
 
         void CurrentChart_MouseClick(object _, ChartMouseNativeEventArgs __) { /* … */ }
+
+        /// <summary>
+        /// Returns a rounded‐corner rectangle path.
+        /// </summary>
+        GraphicsPath RoundedRect(RectangleF rect, float radius)
+        {
+            float d = radius * 1;
+            var path = new GraphicsPath();
+            path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+            path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+            path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+            path.CloseAllFigures();
+            return path;
+        }
+
 
         //── Button helper ───────────────────────────────────────────────────────────
         //── Button helper ────────────────────────────────────────────────────────────
