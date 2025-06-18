@@ -164,7 +164,8 @@ namespace OrderPlacingTool
             int X = xShift, Y = yShift;
 
             const int headerBtnW = 120;  // <-- desired width
-            const int breakBtnW = headerBtnW;
+            const int breakBtnW = 100;
+            const int breakBtnH = 30;
 
             // Row1: SELL | qty | BUY
             sellBtn = new Button(
@@ -241,17 +242,20 @@ new Button(
             );
 
             // Row4: Break-Even & Partial now pushed below the entire Lot-Calc block
-            int BY = startLotY + lotCount * rowHeight + gutter;
+            int BY = startLotY
+       + lotCount * rowHeight
+       + gutter    // original space
+       + gutter;   // extra space to push everything down
             // instantiate the two buttons at the new BY
             beBtn = new Button("Move SL To BE",
 X + gutter, BY,
-X + gutter + breakBtnW, BY + row4H,
+X + gutter + breakBtnW, BY + breakBtnH,
         beBack, bePen, smallFont, textBrush
     );
 
             partBtn = new Button("Close Part",
 X + panelW - gutter - breakBtnW, BY,
-X + panelW - gutter, BY + row4H,
+X + panelW - gutter, BY + breakBtnH,
                  partBack, partPen, smallFont, textBrush
             );
 
@@ -286,25 +290,37 @@ X + panelW - gutter, BY + row4H,
             // Row6 Buttons (immediately under the labels)
             int btnRowY = labelY + 20 + gutter;  // 20px label height + gutter
 
+            // width of each small button
+            const int smallBtnW = 60;
+
+            // 1) All
             btnAll = new Button("All",
-                             X + gutter, btnRowY,
-                             X + 60, btnRowY + row2H,
-                             smallBack, smallPen, smallFont, textBrush);
+                X + gutter, btnRowY,
+                X + gutter + smallBtnW, btnRowY + row2H,
+                smallBack, smallPen, smallFont, textBrush
+            );
 
+            // 2) Profit (gutter to the right of All)
             btnProfit = new Button("Profit",
-                             X + 68, btnRowY,
-                             X + 128, btnRowY + row2H,
-                             smallBack, smallPen, smallFont, textBrush);
+                btnAll.X2 + gutter, btnRowY,
+                btnAll.X2 + gutter + smallBtnW, btnRowY + row2H,
+                smallBack, smallPen, smallFont, textBrush
+            );
 
+            // 3) Loss
             btnLoss = new Button("Loss",
-                             X + 136, btnRowY,
-                             X + 196, btnRowY + row2H,
-                             smallBack, smallPen, smallFont, textBrush);
+                btnProfit.X2 + gutter, btnRowY,
+                btnProfit.X2 + gutter + smallBtnW, btnRowY + row2H,
+                smallBack, smallPen, smallFont, textBrush
+            );
 
+            // 4) Stop
             btnStop = new Button("Stop",
-                             X + panelW - 68, btnRowY,
-                             X + panelW - gutter, btnRowY + row2H,
-                             smallBack, smallPen, smallFont, textBrush);
+                btnLoss.X2 + gutter, btnRowY,
+                btnLoss.X2 + gutter + smallBtnW, btnRowY + row2H,
+                smallBack, smallPen, smallFont, textBrush
+            );
+
 
 
 
@@ -369,10 +385,11 @@ X + panelW - gutter, BY + row4H,
                          X + panelW / 2, Y + headerH + row1H / 2, CenterFormat);
 
             // 4) Row2: Pips bar
-            var p2 = new Rectangle(X + gutter,
-                Y + headerH + row1H,
-                panelW - gutter * 2,
-                row2H);
+            var p2 = new Rectangle(
+    X + gutter,
+    Y + headerH + row1H + 10,      // ← moved down 10px
+    panelW - gutter * 2,
+    row2H);
             g.DrawRectangle(Pens.Gray, p2);
             // left
             g.DrawString(pipL.ToString("F1"), mainFont, textBrush,
@@ -390,10 +407,9 @@ X + panelW - gutter, BY + row4H,
             int startLotY = Y + headerH + row1H + row2H + gutter;
 
             // 1) Calculate the bottom of the Pips bar:
-            int pipBarBottom = Y + headerH + row1H + row2H;
-
-            // 2) LOT CALC LABEL (just below the pip bar)
+            int pipBarBottom = Y + headerH + row1H + row2H + 20;   // ← +4px
             float lotLabelY = pipBarBottom + gutter / 2f;
+
             g.DrawString(
                 "Lot Calc.",
                 smallFont,
@@ -419,7 +435,7 @@ X + panelW - gutter, BY + row4H,
             }
 
             // 4) RADIO BUTTONS (one gutter below the label)
-            int radioStartY = (int)(lotLabelY + smallFont.Height + gutter / 2);
+            int radioStartY = (int)(lotLabelY + smallFont.Height + gutter / 2) + 4;
             for (int i = 0; i < lotRadios.Length; i++)
             {
                 var b = lotRadios[i];
@@ -460,7 +476,11 @@ X + panelW - gutter, BY + row4H,
 
             // 6) BREAK-EVEN & PARTIAL  
             //    find the top of that button row:
-            int BY = radioStartY + lotRadios.Length * (radioSize + gutter) + gutter;
+            int BY = radioStartY
+       + lotRadios.Length * (radioSize + gutter)
+       + gutter    // original
+       + gutter;   // extra
+
 
             // compute Y so that the text sits a full gutter above those buttons
             int breakLabelY = BY
@@ -476,9 +496,10 @@ X + panelW - gutter, BY + row4H,
                 LeftFormat
             );
 
+            const int breakBtnH = 30;
             // now draw the buttons themselves:
-            beBtn.Y1 = BY; beBtn.Y2 = BY + row4H;
-            partBtn.Y1 = BY; partBtn.Y2 = BY + row4H;
+            beBtn.Y1 = BY; beBtn.Y2 = BY + breakBtnH;
+            partBtn.Y1 = BY; partBtn.Y2 = BY + breakBtnH;
             beBtn.Draw(g, btnRadius);
             partBtn.Draw(g, btnRadius);
 
@@ -487,7 +508,7 @@ X + panelW - gutter, BY + row4H,
                 beBtn.X2 + gutter,
                 BY,
                 partBtn.X1 - beBtn.X2 - (gutter * 2),
-                row4H
+                breakBtnH
             );
             using (var br = new SolidBrush(panelBack))
                 g.FillRectangle(br, beValueBox);
@@ -522,11 +543,13 @@ X + panelW - gutter, BY + row4H,
 
             // 4) And immediately under *that*, draw your All/Profit/Loss/Stop buttons…
             //    spacing them only by half a gutter (so they sit tightly under the labels)
+            const int smallBtnW = 60;
             int btnRowY = labelY + mainFont.Height + gutter / 2;
             btnAll.Y1 = btnRowY; btnAll.Y2 = btnRowY + row2H;
-            btnProfit.Y1 = btnRowY; btnProfit.Y2 = btnRowY + row2H;
-            btnLoss.Y1 = btnRowY; btnLoss.Y2 = btnRowY + row2H;
-            btnStop.Y1 = btnRowY; btnStop.Y2 = btnRowY + row2H;
+            btnProfit.Y1 = btnRowY; btnProfit.Y2 = btnRowY + row2H; btnProfit.X1 = btnAll.X2 + gutter; btnProfit.X2 = btnProfit.X1 + smallBtnW;
+            btnLoss.Y1 = btnRowY; btnLoss.Y2 = btnRowY + row2H; btnLoss.X1 = btnProfit.X2 + gutter; btnLoss.X2 = btnLoss.X1 + smallBtnW;
+            btnStop.Y1 = btnRowY; btnStop.Y2 = btnRowY + row2H; btnStop.X1 = btnLoss.X2 + gutter; btnStop.X2 = btnStop.X1 + smallBtnW;
+
 
             btnAll.Draw(g, btnRadius);
             btnProfit.Draw(g, btnRadius);
