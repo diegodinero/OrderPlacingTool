@@ -133,7 +133,7 @@ namespace OrderPlacingTool
 
         int quantity = 100;
         double pipL = 2936.0, pipR = 2795.0;
-        double cashAmt = 20.0, beVal = 0.0;
+        double cashAmt, beVal = 0.0;
 
         enum LotMode { None, Cash, RiskBal, RiskEq }
         LotMode lotMode = LotMode.Cash;
@@ -346,7 +346,11 @@ X + panelW - gutter, BY + breakBtnH,
             base.Dispose();
         }
 
-        protected override void OnUpdate(UpdateArgs args) { }
+        protected override void OnUpdate(UpdateArgs args) 
+        {
+            // Always keep our “cashAmt” in sync with the user-set Risk Amount
+            cashAmt = riskInAmount;
+        }
 
         public override void OnPaintChart(PaintChartEventArgs args)
         {
@@ -416,7 +420,7 @@ X + panelW - gutter, BY + breakBtnH,
             using (var b = new SolidBrush(pipsAndCurrency))
             {
                 g.DrawString(
-                  "Pips",
+                  "Price",
                   mainFont,
                   b,
                   p2.X + p2.Width / 2,
