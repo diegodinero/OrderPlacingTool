@@ -624,13 +624,40 @@ X + panelW - gutter, BY + breakBtnH,
             // 4) And immediately under *that*, draw your All/Profit/Loss/Stop buttons…
             //    spacing them only by half a gutter (so they sit tightly under the labels)
             const int smallBtnW = 60;
+            const int btnCount = 4;
+            const int spacing = gutter;  // 8px
+
+            // total width of 4 buttons + 3 gutters:
+            int totalBtnsW = smallBtnW * btnCount + spacing * (btnCount - 1);
+
+            // compute left edge so the whole group is centered:
+            int btnsStartX = X + (panelW - totalBtnsW) / 2;
+
+            // vertical position:
             int btnRowY = labelY + mainFont.Height + gutter / 2;
-            btnAll.Y1 = btnRowY; btnAll.Y2 = btnRowY + row2H;
-            btnProfit.Y1 = btnRowY; btnProfit.Y2 = btnRowY + row2H; btnProfit.X1 = btnAll.X2 + gutter; btnProfit.X2 = btnProfit.X1 + smallBtnW;
-            btnLoss.Y1 = btnRowY; btnLoss.Y2 = btnRowY + row2H; btnLoss.X1 = btnProfit.X2 + gutter; btnLoss.X2 = btnLoss.X1 + smallBtnW;
-            btnStop.Y1 = btnRowY; btnStop.Y2 = btnRowY + row2H; btnStop.X1 = btnLoss.X2 + gutter; btnStop.X2 = btnStop.X1 + smallBtnW;
 
+            // assign each button’s X1/X2 and Y1/Y2:
+            btnAll.X1 = btnsStartX;
+            btnAll.X2 = btnAll.X1 + smallBtnW;
+            btnAll.Y1 = btnRowY;
+            btnAll.Y2 = btnRowY + row2H;
 
+            btnProfit.X1 = btnAll.X2 + spacing;
+            btnProfit.X2 = btnProfit.X1 + smallBtnW;
+            btnProfit.Y1 = btnRowY;
+            btnProfit.Y2 = btnRowY + row2H;
+
+            btnLoss.X1 = btnProfit.X2 + spacing;
+            btnLoss.X2 = btnLoss.X1 + smallBtnW;
+            btnLoss.Y1 = btnRowY;
+            btnLoss.Y2 = btnRowY + row2H;
+
+            btnStop.X1 = btnLoss.X2 + spacing;
+            btnStop.X2 = btnStop.X1 + smallBtnW;
+            btnStop.Y1 = btnRowY;
+            btnStop.Y2 = btnRowY + row2H;
+
+            // finally draw them:
             btnAll.Draw(g, btnRadius);
             btnProfit.Draw(g, btnRadius);
             btnLoss.Draw(g, btnRadius);
