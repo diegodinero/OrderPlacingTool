@@ -100,8 +100,8 @@ namespace OrderPlacingTool
         readonly PairColor smallCol = new PairColor { Color1 = Color.FromArgb(50, 50, 60), Color2 = Color.Gray };
 
         readonly Font titleFont = new Font("Segoe UI", 14, FontStyle.Bold);
-        readonly Font mainFont = new Font("Segoe UI", 12, FontStyle.Regular);
-        readonly Font smallFont = new Font("Segoe UI", 10, FontStyle.Regular);
+        readonly Font mainFont = new Font("Segoe UI", 12, FontStyle.Bold);
+        readonly Font smallFont = new Font("Segoe UI", 12, FontStyle.Regular);
         readonly Brush textBrush = Brushes.White;
 
         // static so nested Button can reference
@@ -225,6 +225,9 @@ new Button(
     circle: true
 )
 };
+            // default to the “Cash Amount” radio being selected:
+            lotRadios[(int)LotMode.Cash].IsChecked = true;
+
 
             // width of the text‐box
             const int cashBoxWidth = 80;
@@ -413,11 +416,11 @@ X + panelW - gutter, BY + breakBtnH,
 
             // 1) Calculate the bottom of the Pips bar:
             int pipBarBottom = Y + headerH + row1H + row2H + 20;   // ← +4px
-            float lotLabelY = pipBarBottom + gutter / 2f;
+            float lotLabelY = pipBarBottom + gutter;
 
             g.DrawString(
                 "Lot Calc.",
-                smallFont,
+                mainFont,
                 textBrush,
                 X + gutter,
                 lotLabelY,
@@ -440,7 +443,7 @@ X + panelW - gutter, BY + breakBtnH,
             }
 
             // 4) RADIO BUTTONS (one gutter below the label)
-            int radioStartY = (int)(lotLabelY + smallFont.Height + gutter / 2) + 4;
+            int radioStartY = (int)(lotLabelY + smallFont.Height + gutter / 32);
             for (int i = 0; i < lotRadios.Length; i++)
             {
                 var b = lotRadios[i];
@@ -599,6 +602,7 @@ X + panelW - gutter, BY + breakBtnH,
         //── Button helper ────────────────────────────────────────────────────────────
         private class Button
         {
+            public bool IsChecked;
             public string Text;
             public int X1, Y1, X2, Y2;
             private readonly Brush back;
@@ -664,13 +668,27 @@ X + panelW - gutter, BY + breakBtnH,
 
             public void DrawCircle(Graphics g, int _)
             {
-                var dia = Height;
-                var rect = new Rectangle(X1, Y1, dia, dia);
+                int dia = Height;
+                var outer = new Rectangle(X1, Y1, dia, dia);
 
-                g.DrawEllipse(border, rect);
-                if (isCircle)
-                    g.FillEllipse(back, rect);
+                // draw the outline
+                g.DrawEllipse(border, outer);
+
+                // fill only if this is a radio and it's checked
+                if (isCircle && IsChecked)
+                {
+                    // make the fill circle half the diameter
+                    int fillDia = dia / 2;
+                    // center it in the outer circle
+                    int offset = (dia - fillDia) / 2;
+                    var inner = new Rectangle(X1 + offset, Y1 + offset, fillDia, fillDia);
+
+                    using (var white = new SolidBrush(Color.White))
+                        g.FillEllipse(white, inner);
+                }
             }
+
+
 
             public bool Contains(int x, int y)
                 => x >= X1 && x < X2 && y >= Y1 && y < Y2;
