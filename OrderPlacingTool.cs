@@ -346,10 +346,55 @@ X + panelW - gutter, BY + breakBtnH,
             base.Dispose();
         }
 
+        private IDrawing GetPSCPosition(string name)
+        {
+            // finds a drawing whose CustomName matches the PSC drawing
+            return CurrentChart.Drawings
+                .GetAll(Symbol)
+                .FirstOrDefault(d =>
+                    SettingItemExtensions
+                        .GetItemByName(((ICustomizable)d).Settings, "CustomName")
+                        ?.Value?.ToString() == name);
+        }
+
+        private double GetDrawingPrice(IDrawing d, string pointName)
+        {
+            if (d == null) return 0;
+            var sd = SettingItemExtensions.GetItemByName(((ICustomizable)d).Settings, pointName)
+                     as SettingItemDouble;
+            return sd != null ? (double)sd.Value : 0.0;
+        }
+
         protected override void OnUpdate(UpdateArgs args) 
         {
             // Always keep our “cashAmt” in sync with the user-set Risk Amount
             cashAmt = riskInAmount;
+            // find the PSC drawing:
+            var longPos = CurrentChart.Drawings
+                        .GetAll(Symbol)
+                        .FirstOrDefault(d =>
+                            SettingItemExtensions
+                                .GetItemByName(((ICustomizable)d).Settings, "CustomName")
+                                ?.Value?.ToString() == "Long Position"
+                        );
+            var shortPos = CurrentChart.Drawings
+                        .GetAll(Symbol)
+                        .FirstOrDefault(d =>
+                            SettingItemExtensions
+                                .GetItemByName(((ICustomizable)d).Settings, "CustomName")
+                                ?.Value?.ToString() == "Short Position"
+                        );
+
+            if (longPos != null)
+            {
+                pipR = GetDrawingPrice(longPos, "TopPoint");    // TP
+                pipL = GetDrawingPrice(longPos, "BottomPoint"); // SL
+            }
+            else if (shortPos != null)
+            {
+                pipR = GetDrawingPrice(shortPos, "BottomPoint");
+                pipL = GetDrawingPrice(shortPos, "TopPoint");
+            }
         }
 
         public override void OnPaintChart(PaintChartEventArgs args)
@@ -445,8 +490,8 @@ X + panelW - gutter, BY + breakBtnH,
                     g.FillPath(br, path);
                 g.DrawPath(Pens.Gray, path);
             }
-            // left
-            g.DrawString(pipL.ToString("F1"), mainFont, textBrush,
+            // left (Stop Loss price, two decimals)
+            g.DrawString(pipL.ToString("F2"), mainFont, textBrush,
                          p2.X + (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
             // center
             using (var b = new SolidBrush(pipsAndCurrency))
@@ -460,8 +505,8 @@ X + panelW - gutter, BY + breakBtnH,
                   CenterFormat
                 );
             }
-            // right
-            g.DrawString(pipR.ToString("F1"), mainFont, textBrush,
+            // right (Take Profit price, two decimals)
+            g.DrawString(pipR.ToString("F2"), mainFont, textBrush,
                          p2.Right - (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
 
 
@@ -813,9 +858,7 @@ X + panelW - gutter, BY + breakBtnH,
                     using (var white = new SolidBrush(Color.White))
                         g.FillEllipse(white, inner);
                 }
-            }
-
-
+            }       
 
             public bool Contains(int x, int y)
                 => x >= X1 && x < X2 && y >= Y1 && y < Y2;
