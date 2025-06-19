@@ -490,21 +490,45 @@ X + panelW - gutter, BY + breakBtnH,
                     g.FillPath(br, path);
                 g.DrawPath(Pens.Gray, path);
             }
+
+
+
+
+
             // left (Stop Loss price, two decimals)
             g.DrawString(pipL.ToString("F2"), mainFont, textBrush,
                          p2.X + (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
-            // center
-            using (var b = new SolidBrush(pipsAndCurrency))
-            {
-                g.DrawString(
-                  "Price",
-                  mainFont,
-                  b,
-                  p2.X + p2.Width / 2,
-                  p2.Y + row2H / 2,
-                  CenterFormat
-                );
-            }
+            // ── SL / Price / TP labels, spaced out ──
+
+            // compute the vertical center of the bar:
+            float yPipsBar = p2.Y + row2H / 2f;
+            // measure “Price” so we can offset SL/TP outside its bounds:
+            const float gap = 12f;  // tweak this for more/less space
+            string priceLabel = "Price";
+            SizeF priceSz = g.MeasureString(priceLabel, mainFont);
+            float centerX = p2.X + p2.Width / 2f;
+
+            // draw “Price” in the middle
+            using (var priceBrush = new SolidBrush(pipsAndCurrency))
+                g.DrawString(priceLabel, mainFont, priceBrush,
+                             new PointF(centerX, yPipsBar), CenterFormat);
+
+            // measure SL/TP
+            string slLabel = "SL";
+            SizeF slSz = g.MeasureString(slLabel, smallFont);
+            string tpLabel = "TP";
+            SizeF tpSz = g.MeasureString(tpLabel, smallFont);
+
+            // draw SL in red to the left of “Price”
+            float slX = centerX - (priceSz.Width / 2f) - (slSz.Width / 2f) - gap;
+            g.DrawString(slLabel, smallFont, Brushes.Red,
+                         new PointF(slX, yPipsBar), CenterFormat);
+
+            // draw TP in green to the right of “Price”
+            float tpX = centerX + (priceSz.Width / 2f) + (tpSz.Width / 2f) + gap;
+            g.DrawString(tpLabel, smallFont, Brushes.Green,
+                         new PointF(tpX, yPipsBar), CenterFormat);
+
             // right (Take Profit price, two decimals)
             g.DrawString(pipR.ToString("F2"), mainFont, textBrush,
                          p2.Right - (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
