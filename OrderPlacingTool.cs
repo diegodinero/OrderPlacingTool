@@ -400,6 +400,38 @@ X + panelW - gutter, BY + breakBtnH,
             buyBtn.Draw(g, btnRadius);
             g.DrawString(quantity.ToString(), mainFont, textBrush,
                          X + panelW / 2, Y + headerH + row1H / 2, CenterFormat);
+            // fetch live prices
+            double bidPrice = Symbol.Bid;
+            double askPrice = Symbol.Ask;
+
+            // compute the Y position of the button‐label center
+            float sellLabelY = sellBtn.Y1 + sellBtn.Height / 2f;
+            float buyLabelY = buyBtn.Y1 + buyBtn.Height / 2f;
+
+            // pick a Y just a font‐height below that
+            float priceY = sellLabelY + smallFont.Height - 8;
+
+            // X centers
+            float sellX = sellBtn.X1 + sellBtn.Width / 2f;
+            float buyX = buyBtn.X1 + buyBtn.Width / 2f;
+
+            // draw them
+            g.DrawString(
+                bidPrice.ToString("F2"),
+                smallFont,
+                textBrush,
+                sellX,
+                priceY,
+                CenterFormat
+            );
+            g.DrawString(
+                askPrice.ToString("F2"),
+                smallFont,
+                textBrush,
+                buyX,
+                priceY,
+                CenterFormat
+            );
 
             // 4) Row2: Pips bar
             var p2 = new Rectangle(
