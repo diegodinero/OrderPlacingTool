@@ -63,6 +63,7 @@ namespace OrderPlacingTool
                 SettingItemExtensions.TryGetValue(value, "yShift", out yShift);
                 base.Settings = value;
                 BuildBrushesAndPens();
+                LayoutUI();
             }
         }
 
@@ -166,6 +167,17 @@ namespace OrderPlacingTool
 
         protected override void OnInit()
         {
+            LayoutUI();                            // initial layout
+            CurrentChart.MouseClick += CurrentChart_MouseClick;
+        }
+
+        /// <summary>
+        /// (Re)positions *all* of your buttons, boxes, radios, etc.
+        /// based on the current xShift / yShift fields.
+        /// </summary>
+        void LayoutUI()
+        {
+
             int X = xShift, Y = yShift;
 
             const int headerBtnW = 120;  // <-- desired width
