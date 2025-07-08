@@ -24,6 +24,8 @@ namespace OrderPlacingTool
         private double rewardMultiplier = 1.0;
         private int xShift = 30;   // panel left offset
         private int yShift = 30;   // panel top offset
+        [InputParameter("Market Order Mode", 14)]
+        public bool MarketOrderMode { get; set; } = false;
 
         public override IList<SettingItem> Settings
         {
@@ -140,6 +142,9 @@ namespace OrderPlacingTool
         LotMode lotMode = LotMode.Cash;
 
         Rectangle beValueBox;
+
+        private bool isBuyFlow, isSellFlow;
+        private double entryPrice, stopPrice;
         //──────────────────────────────────────────────────────────────────────────────
         public OrderPlacingTool()
         {
@@ -788,7 +793,116 @@ X + panelW - gutter, BY + breakBtnH,
             g.SetClip(r, CombineMode.Replace);
         }
 
-        void CurrentChart_MouseClick(object _, ChartMouseNativeEventArgs __) { /* … */ }
+        void CurrentChart_MouseClick(object _, ChartMouseNativeEventArgs e)
+        {
+            var ne = (NativeMouseEventArgs)e;
+            int x = ne.X, y = ne.Y;
+            var priceAtClick = CurrentChart.MainWindow.CoordinatesConverter.GetPrice(y);
+
+            // BUY BUTTON CLICKED?
+            if (buyBtn.Contains(x, y))
+            {
+                // First click → record entry
+                if (!isBuyFlow)
+                {
+                    isBuyFlow = true;
+                    entryPrice = Symbol.Ask;
+                    stopPrice = 0;
+                }
+                return;
+            }
+
+            // We’re in BUY‐capture mode, and this is the *second* click anywhere outside BUY:
+            if (isBuyFlow && stopPrice == 0)
+            {
+                stopPrice = priceAtClick;
+
+                // compute risk parameters
+                double slTicks = Math.Abs((entryPrice - stopPrice) / Symbol.TickSize);
+                double tpTicks = slTicks * rewardMultiplier;
+                double qty = GetVolumeByFixedAmount(Symbol, riskInAmount, slTicks);
+
+                // place a MARKET‐BUY
+                var req = new PlaceOrderRequestParameters
+                {
+                    Symbol = Symbol,
+                    Account = CurrentChart.Account,
+                    OrderTypeId = OrderType.Market,
+                    Side = Side.Buy,    // ← explicitly BUY
+                    Quantity = qty,
+                    StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
+                    TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                };
+                Core.PlaceOrder(req);
+
+                // reset
+                isBuyFlow = false;
+                return;
+            }
+
+            // SELL BUTTON CLICKED?
+            if (sellBtn.Contains(x, y))
+            {
+                if (!isSellFlow)
+                {
+                    isSellFlow = true;
+                    entryPrice = Symbol.Bid;
+                    stopPrice = 0;
+                }
+                return;
+            }
+
+            if (isSellFlow && stopPrice == 0)
+            {
+                stopPrice = priceAtClick;
+                double slTicks = Math.Abs((stopPrice - entryPrice) / Symbol.TickSize);
+                double tpTicks = slTicks * rewardMultiplier;
+                double qty = GetVolumeByFixedAmount(Symbol, riskInAmount, slTicks);
+
+                var req = new PlaceOrderRequestParameters
+                {
+                    Symbol = Symbol,
+                    Account = CurrentChart.Account,
+                    OrderTypeId = OrderType.Market,
+                    Side = Side.Sell,   // ← explicitly SELL
+                    Quantity = qty,
+                    StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
+                    TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                };
+                Core.PlaceOrder(req);
+
+                isSellFlow = false;
+                return;
+            }
+
+            // flatten‐all button
+            if (btnAll.Contains(x, y))
+            {
+                Core.AdvancedTradingOperations.Flatten();
+                return;
+            }
+        }
+
+
+        private double GetVolumeByFixedAmount(Symbol symbol, int amountToRisk, double slTicks)
+        {
+            if (DoubleExtensions.IsNanOrDefault(symbol.Bid) || DoubleExtensions.IsNanOrDefault(symbol.TickSize))
+                return 0;
+            double num1 = symbol.GetTickCost(symbol.Bid) * slTicks;
+            double num2 = (double)amountToRisk / num1;
+            var loggers = Core.Instance.Loggers;
+            loggers.Log($"symbol={symbol}, amountToRisk={amountToRisk}, slTicks={slTicks}, tickSize={symbol.TickSize}, tickCost={symbol.GetTickCost(symbol.Bid)}, calculatedLotSize={num2}", LoggingLevel.System, null);
+            double minLot = symbol.MinLot;
+            double maxLot = symbol.MaxLot;
+            double lotStep = symbol.LotStep;
+            double adjusted = Math.Max(0, num2 - minLot);
+            int steps = (int)(adjusted / lotStep);
+            double volumeByFixedAmount = minLot + steps * lotStep;
+            if (volumeByFixedAmount < minLot) volumeByFixedAmount = minLot;
+            if (volumeByFixedAmount > maxLot) volumeByFixedAmount = maxLot;
+            return volumeByFixedAmount;
+        }
+
 
         /// <summary>
         /// Returns a rounded‐corner rectangle path.
