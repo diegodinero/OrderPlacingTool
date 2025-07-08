@@ -145,6 +145,9 @@ namespace OrderPlacingTool
 
         private bool isBuyFlow, isSellFlow;
         private double entryPrice, stopPrice;
+        // 1) Add these two fields at the top of your class:
+        private Side lastSide;
+        private double lastEntryPrice;
         //──────────────────────────────────────────────────────────────────────────────
         public OrderPlacingTool()
         {
@@ -169,11 +172,24 @@ namespace OrderPlacingTool
             smallPen = new Pen(smallCol.Color2);
             textBoxBack = new SolidBrush(textBoxBackCol);
         }
+        
+
+        private void OnOrderClosed(OrderHistory hist)
+        {
+            if (hist.Account == CurrentChart.Account
+     && hist.Symbol == Symbol
+     && ( hist.Status == OrderStatus.Cancelled))
+            {
+                lastEntryPrice = 0;
+                beVal = 0;
+            }
+        }
 
         protected override void OnInit()
         {
             LayoutUI();                            // initial layout
             CurrentChart.MouseClick += CurrentChart_MouseClick;
+            Core.Instance.OrdersHistoryAdded += OnOrderClosed;
         }
 
         /// <summary>
@@ -360,6 +376,7 @@ X + panelW - gutter, BY + breakBtnH,
         public override void Dispose()
         {
             CurrentChart.MouseClick -= CurrentChart_MouseClick;
+            Core.Instance.OrdersHistoryAdded -= OnOrderClosed;
             base.Dispose();
         }
 
@@ -411,6 +428,23 @@ X + panelW - gutter, BY + breakBtnH,
             {
                 pipR = GetDrawingPrice(shortPos, "BottomPoint");
                 pipL = GetDrawingPrice(shortPos, "TopPoint");
+            }
+            if (lastEntryPrice != 0)
+            {
+                // choose the correct “current” price stream
+                double current = lastSide == Side.Buy ? Symbol.Bid : Symbol.Ask;
+                // compute P&L in ticks, rounded to 1 decimal
+                beVal = Math.Round(
+                    (lastSide == Side.Buy
+                        ? current - lastEntryPrice
+                        : lastEntryPrice - current)
+                    / Symbol.TickSize,
+                    1
+                );
+            }
+            else
+            {
+                beVal = 0;
             }
         }
 
@@ -834,7 +868,8 @@ X + panelW - gutter, BY + breakBtnH,
                     TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
                 };
                 Core.PlaceOrder(req);
-
+                lastSide = Side.Buy;
+                lastEntryPrice = entryPrice;   // the price you captured on the first click
                 // reset
                 isBuyFlow = false;
                 return;
@@ -870,6 +905,8 @@ X + panelW - gutter, BY + breakBtnH,
                     TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
                 };
                 Core.PlaceOrder(req);
+                lastSide = Side.Sell;
+                lastEntryPrice = entryPrice;
 
                 isSellFlow = false;
                 return;
