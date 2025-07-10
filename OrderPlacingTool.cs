@@ -430,14 +430,15 @@ X + panelW - gutter, BY + breakBtnH,
 
         private IDrawing GetPSCPosition(string name)
         {
-            // finds a drawing whose CustomName matches the PSC drawing
             return CurrentChart.Drawings
                 .GetAll(Symbol)
-                .FirstOrDefault(d =>
+                .Where(d =>
                     SettingItemExtensions
                         .GetItemByName(((ICustomizable)d).Settings, "CustomName")
-                        ?.Value?.ToString() == name);
+                        ?.Value?.ToString() == name)
+                .LastOrDefault();
         }
+
 
         private double GetDrawingPrice(IDrawing d, string pointName)
         {
