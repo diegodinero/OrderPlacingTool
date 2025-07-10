@@ -20,54 +20,22 @@ namespace OrderPlacingTool
     public class OrderPlacingTool : Indicator
     {
         //── USER SETTINGS ───────────────────────────────────────────────────────────
-        private int riskInAmount = 100;
-        private double rewardMultiplier = 1.0;
-        private int xShift = 30;   // panel left offset
-        private int yShift = 30;   // panel top offset
-        [InputParameter("Market Order Mode", 14)]
+        [InputParameter("Risk Amount", 0, 1, 1_000_000, 1)]
+        public int RiskAmount { get; set; } = 100;
+
+        [InputParameter("Reward Multiplier", 1, 0.1, 10, 0.1)]
+        public double RewardMultiplier { get; set; } = 1.0;
+
+        [InputParameter("X Offset", 2)]
+        public int XShift { get; set; } = 30;
+
+        [InputParameter("Y Offset", 3)]
+        public int YShift { get; set; } = 30;
+
+        [InputParameter("Market Order Mode", 4)]
         public bool MarketOrderMode { get; set; } = false;
 
-        public override IList<SettingItem> Settings
-        {
-            get
-            {
-                var s = base.Settings;
-                var sep = s.FirstOrDefault()?.SeparatorGroup;
-                s.Add(new SettingItemInteger("riskInAmount", riskInAmount)
-                {
-                    Text = "Risk Amount",
-                    SeparatorGroup = sep
-                });
-                s.Add(new SettingItemDouble("rewardMultiplier", rewardMultiplier)
-                {
-                    Text = "Reward Multiplier",
-                    Increment = 0.1,
-                    DecimalPlaces = 1,
-                    SeparatorGroup = sep
-                });
-                s.Add(new SettingItemInteger("xShift", xShift)
-                {
-                    Text = "X Offset",
-                    SeparatorGroup = sep
-                });
-                s.Add(new SettingItemInteger("yShift", yShift)
-                {
-                    Text = "Y Offset",
-                    SeparatorGroup = sep
-                });
-                return s;
-            }
-            set
-            {
-                SettingItemExtensions.TryGetValue(value, "riskInAmount", out riskInAmount);
-                SettingItemExtensions.TryGetValue(value, "rewardMultiplier", out rewardMultiplier);
-                SettingItemExtensions.TryGetValue(value, "xShift", out xShift);
-                SettingItemExtensions.TryGetValue(value, "yShift", out yShift);
-                base.Settings = value;
-                BuildBrushesAndPens();
-                LayoutUI();
-            }
-        }
+        
 
         //── LAYOUT CONSTANTS ─────────────────────────────────────────────────────────
         const int panelW = 320;
@@ -209,6 +177,15 @@ namespace OrderPlacingTool
             }
         }
 
+        protected override void OnSettingsUpdated()
+        {
+            base.OnSettingsUpdated();
+            BuildBrushesAndPens();
+            LayoutUI();
+            
+        }
+
+
         protected override void OnInit()
         {
             base.OnInit();                           // ← make sure the base wiring happens
@@ -227,7 +204,7 @@ namespace OrderPlacingTool
         void LayoutUI()
         {
 
-            int X = xShift, Y = yShift;
+            int X = XShift, Y = YShift;
 
             const int headerBtnW = 120;  // <-- desired width
             const int breakBtnW = 100;
@@ -455,7 +432,7 @@ X + panelW - gutter, BY + breakBtnH,
         protected override void OnUpdate(UpdateArgs args) 
         {
             // Always keep our “cashAmt” in sync with the user-set Risk Amount
-            cashAmt = riskInAmount;
+            cashAmt = RiskAmount;
             // find the PSC drawing:
             var longPos = CurrentChart.Drawings
                         .GetAll(Symbol)
@@ -508,7 +485,7 @@ X + panelW - gutter, BY + breakBtnH,
 
             var g = args.Graphics;
             var r = args.Rectangle;
-            int X = xShift, Y = yShift;
+            int X = XShift, Y = YShift;
 
 
 
@@ -933,8 +910,8 @@ X + panelW - gutter, BY + breakBtnH,
                     // safely using the symbol you stored in OnInit
                     double slTicks = Math.Abs((tradeParams.price - tradeParams.slPrice) / tickSize);
 
-                    double tpTicks = slTicks * rewardMultiplier;
-                    double qty = GetVolumeByFixedAmount(Symbol, riskInAmount, slTicks);
+                    double tpTicks = slTicks * RewardMultiplier;
+                    double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
 
                     var req = new PlaceOrderRequestParameters
                     {
@@ -966,8 +943,8 @@ X + panelW - gutter, BY + breakBtnH,
                 if (tradeParams.price != 0 && tradeParams.slPrice != 0)
                 {
                     double slTicks = Math.Abs((tradeParams.price - tradeParams.slPrice) / Symbol.TickSize);
-                    double tpTicks = slTicks * rewardMultiplier;
-                    double qty = GetVolumeByFixedAmount(Symbol, riskInAmount, slTicks);
+                    double tpTicks = slTicks * RewardMultiplier;
+                    double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
 
                     var req = new PlaceOrderRequestParameters
                     {
@@ -1008,8 +985,8 @@ X + panelW - gutter, BY + breakBtnH,
 
                 // compute risk parameters
                 double slTicks = Math.Abs((entryPrice - stopPrice) / Symbol.TickSize);
-                double tpTicks = slTicks * rewardMultiplier;
-                double qty = GetVolumeByFixedAmount(Symbol, riskInAmount, slTicks);
+                double tpTicks = slTicks * RewardMultiplier;
+                double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
 
                 // place a MARKET‐BUY
                 var req = new PlaceOrderRequestParameters
@@ -1046,8 +1023,8 @@ X + panelW - gutter, BY + breakBtnH,
             {
                 stopPrice = clickedPrice;
                 double slTicks = Math.Abs((stopPrice - entryPrice) / Symbol.TickSize);
-                double tpTicks = slTicks * rewardMultiplier;
-                double qty = GetVolumeByFixedAmount(Symbol, riskInAmount, slTicks);
+                double tpTicks = slTicks * RewardMultiplier;
+                double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
 
                 var req = new PlaceOrderRequestParameters
                 {
