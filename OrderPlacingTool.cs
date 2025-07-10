@@ -38,6 +38,9 @@ namespace OrderPlacingTool
         [InputParameter("Auto Adjust SL/TP on Fill", 5)]
         public bool AutoAdjustOnFill { get; set; } = true;
 
+        [InputParameter("UI Scale", 6, 0.5, 2, 0.1)]
+        public double UIScale { get; set; } = 1.0;
+
 
         //── LAYOUT CONSTANTS ─────────────────────────────────────────────────────────
         const int panelW = 320;
@@ -528,6 +531,9 @@ X + panelW - gutter, BY + breakBtnH,
                 return;
 
             var g = args.Graphics;
+            // apply user scale
+            float s = (float)UIScale;
+            g.ScaleTransform(s, s);
             var r = args.Rectangle;
             int X = XShift, Y = YShift;
 
@@ -1052,7 +1058,9 @@ X + panelW - gutter, BY + breakBtnH,
         void CurrentChart_MouseClick(object _, ChartMouseNativeEventArgs e)
         {
             var ne = (NativeMouseEventArgs)e;
-            int x = ne.X, y = ne.Y;
+            // scale the hit-test back
+            int x = (int)(ne.X / UIScale);
+            int y = (int)(ne.Y / UIScale);
 
             // first check your R:R button
             if (rrBtnRect.Contains(x, y))
