@@ -143,10 +143,11 @@ namespace OrderPlacingTool
 
         enum LotMode { None, Cash, RiskBal, RiskEq }
         LotMode lotMode = LotMode.Cash;
-
+        
         Rectangle beValueBox;
 
         private bool isBuyFlow, isSellFlow;
+        private bool isLimitFlow, isStopFlow;
         private double entryPrice, stopPrice;
         // 1) Add these two fields at the top of your class:
         private Side lastSide;
@@ -161,6 +162,26 @@ namespace OrderPlacingTool
             BuildBrushesAndPens();
         }
 
+
+        // reuse your TradeParams class exactly as you had it:
+        private class TradeParams
+        {
+            public Symbol symbol;
+            public Account account;
+            public string orderTypeId;
+            public Side side;
+            public double lotSize;
+            public double price;
+            public double slPrice;
+            public double tpPrice;
+            public void Reset()
+            {
+                orderTypeId = null;
+                side = Side.Buy;
+                lotSize = price = slPrice = tpPrice = 0;
+            }
+        }
+        private TradeParams tradeParams = new TradeParams();
         void BuildBrushesAndPens()
         {
             sellBack = new SolidBrush(sellCol.Color1);
@@ -190,6 +211,10 @@ namespace OrderPlacingTool
 
         protected override void OnInit()
         {
+            base.OnInit();                           // ← make sure the base wiring happens
+            tradeParams.symbol = this.Symbol;       // ← grab the chart’s symbol
+            tradeParams.account = this.CurrentChart.Account;
+
             LayoutUI();                            // initial layout
             CurrentChart.MouseClick += CurrentChart_MouseClick;
             Core.Instance.OrdersHistoryAdded += OnOrderClosed;
@@ -398,7 +423,7 @@ X + panelW - gutter, BY + breakBtnH,
 
 
             // Subscribe for clicks if needed:
-            CurrentChart.MouseClick += CurrentChart_MouseClick;
+            //CurrentChart.MouseClick += CurrentChart_MouseClick;
         }
 
         public override void Dispose()
@@ -859,13 +884,110 @@ X + panelW - gutter, BY + breakBtnH,
             // restore clip
             g.SetClip(r, CombineMode.Replace);
         }
-
+        private void ResetAllButtons()
+        {
+            limitOrderBtn.Reset("LIMIT");
+            stopOrderBtn.Reset("STOP");
+        }
         void CurrentChart_MouseClick(object _, ChartMouseNativeEventArgs e)
         {
             var ne = (NativeMouseEventArgs)e;
             int x = ne.X, y = ne.Y;
-            var priceAtClick = CurrentChart.MainWindow.CoordinatesConverter.GetPrice(y);
+            double clickedPrice = CurrentChart.MainWindow.CoordinatesConverter.GetPrice(y);
 
+            // 1) LIMIT toggle
+            if (limitOrderBtn.Contains(x, y))
+            {
+                limitOrderBtn.isClicked = !limitOrderBtn.isClicked;
+                limitOrderBtn.Text = limitOrderBtn.isClicked ? "Cancel" : "LIMIT";
+                if (limitOrderBtn.isClicked)
+                    stopOrderBtn.Reset("STOP");
+                else
+                    tradeParams.Reset();
+                return;
+            }
+
+            // 2) STOP toggle
+            if (stopOrderBtn.Contains(x, y))
+            {
+                stopOrderBtn.isClicked = !stopOrderBtn.isClicked;
+                stopOrderBtn.Text = stopOrderBtn.isClicked ? "Cancel" : "STOP";
+                if (stopOrderBtn.isClicked)
+                    limitOrderBtn.Reset("LIMIT");
+                else
+                    tradeParams.Reset();
+                return;
+            }
+
+            // 3) LIMIT price picking
+            if (limitOrderBtn.isClicked)
+            {
+                if (tradeParams.price == 0)
+                    tradeParams.price = clickedPrice;
+                else if (tradeParams.slPrice == 0)
+                    tradeParams.slPrice = clickedPrice;
+
+                if (tradeParams.price != 0 && tradeParams.slPrice != 0)
+                {
+                    double tickSize = tradeParams.symbol.TickSize;
+                    // safely using the symbol you stored in OnInit
+                    double slTicks = Math.Abs((tradeParams.price - tradeParams.slPrice) / tickSize);
+
+                    double tpTicks = slTicks * rewardMultiplier;
+                    double qty = GetVolumeByFixedAmount(Symbol, riskInAmount, slTicks);
+
+                    var req = new PlaceOrderRequestParameters
+                    {
+                        Symbol = Symbol,
+                        Account = CurrentChart.Account,
+                        OrderTypeId = OrderType.Limit,
+                        Side = tradeParams.price > tradeParams.slPrice ? Side.Buy : Side.Sell,
+                        Price = tradeParams.price,
+                        Quantity = qty,
+                        StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
+                        TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                    };
+                    Core.Instance.PlaceOrder(req);
+
+                    ResetAllButtons();
+                    tradeParams.Reset();
+                }
+                return;
+            }
+
+            // 4) STOP price picking
+            if (stopOrderBtn.isClicked)
+            {
+                if (tradeParams.price == 0)
+                    tradeParams.price = clickedPrice;
+                else if (tradeParams.slPrice == 0)
+                    tradeParams.slPrice = clickedPrice;
+
+                if (tradeParams.price != 0 && tradeParams.slPrice != 0)
+                {
+                    double slTicks = Math.Abs((tradeParams.price - tradeParams.slPrice) / Symbol.TickSize);
+                    double tpTicks = slTicks * rewardMultiplier;
+                    double qty = GetVolumeByFixedAmount(Symbol, riskInAmount, slTicks);
+
+                    var req = new PlaceOrderRequestParameters
+                    {
+                        Symbol = Symbol,
+                        Account = CurrentChart.Account,
+                        OrderTypeId = OrderType.Stop,
+                        Side = tradeParams.price > Symbol.Bid ? Side.Buy : Side.Sell,
+                        TriggerPrice = tradeParams.price,
+                        Quantity = qty,
+                        StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
+                        TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN),
+                        TimeInForce = TimeInForce.GTC
+                    };
+                    Core.Instance.PlaceOrder(req);
+
+                    ResetAllButtons();
+                    tradeParams.Reset();
+                }
+                return;
+            }
             // BUY BUTTON CLICKED?
             if (buyBtn.Contains(x, y))
             {
@@ -882,7 +1004,7 @@ X + panelW - gutter, BY + breakBtnH,
             // We’re in BUY‐capture mode, and this is the *second* click anywhere outside BUY:
             if (isBuyFlow && stopPrice == 0)
             {
-                stopPrice = priceAtClick;
+                stopPrice = clickedPrice;
 
                 // compute risk parameters
                 double slTicks = Math.Abs((entryPrice - stopPrice) / Symbol.TickSize);
@@ -922,7 +1044,7 @@ X + panelW - gutter, BY + breakBtnH,
 
             if (isSellFlow && stopPrice == 0)
             {
-                stopPrice = priceAtClick;
+                stopPrice = clickedPrice;
                 double slTicks = Math.Abs((stopPrice - entryPrice) / Symbol.TickSize);
                 double tpTicks = slTicks * rewardMultiplier;
                 double qty = GetVolumeByFixedAmount(Symbol, riskInAmount, slTicks);
@@ -945,8 +1067,8 @@ X + panelW - gutter, BY + breakBtnH,
                 return;
             }
 
-            // flatten‐all button
-            if (btnAll.Contains(x, y))
+                // flatten‐all button
+                if (btnAll.Contains(x, y))
             {
                 Core.AdvancedTradingOperations.Flatten();
                 return;
@@ -994,6 +1116,7 @@ X + panelW - gutter, BY + breakBtnH,
         //── Button helper ────────────────────────────────────────────────────────────
         private class Button
         {
+            public bool isClicked;
             public bool IsChecked;
             public string Text;
             public int X1, Y1, X2, Y2;
@@ -1025,6 +1148,14 @@ X + panelW - gutter, BY + breakBtnH,
                 this.font = font;
                 this.txtBrush = txtBrush;
                 this.isCircle = circle;
+                isClicked = false;
+            }
+
+            public void Reset(string newText)
+            {
+                this.Text = newText;
+                this.IsChecked = false;   // if you want to also clear any “checked” state
+                isClicked = false;
             }
 
             public int Width => X2 - X1;
