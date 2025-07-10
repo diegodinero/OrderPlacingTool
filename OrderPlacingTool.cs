@@ -97,6 +97,7 @@ namespace OrderPlacingTool
         Button sellBtn, buyBtn;
         Button[] lotRadios;
         Rectangle cashBox;
+        private Rectangle rrBtnRect;
         Button beBtn, partBtn;
         Button btnAll, btnProfit, btnLoss, btnStop;
         Rectangle labelCloseTrades, labelCloseOrders;
@@ -652,6 +653,35 @@ X + panelW - gutter, BY + breakBtnH,
                 );
             }
 
+            // draw the R:R button background & border
+            using (var path = RoundedRect(rrBtnRect, btnRadius))
+            using (var br = new SolidBrush(textBoxBackCol))
+            {
+                g.FillPath(br, path);
+                g.DrawPath(Pens.Gray, path);
+            }
+
+            // now draw each character in its color
+            var font = smallFont;
+            var fmt = CenterFormat;
+            // measure widths
+            float wR = g.MeasureString("R", font).Width;
+            float wC = g.MeasureString(":", font).Width;
+            // starting X so that "R:R" is centered in rrBtnRect
+            float totalW = wR + wC + wR;
+            float startX = rrBtnRect.X + (rrBtnRect.Width - totalW) / 2;
+            float centerY = rrBtnRect.Y + rrBtnRect.Height / 2;
+
+            // left R (red)
+            g.DrawString("R", font, Brushes.Red,
+                         new PointF(startX + wR / 2, centerY), fmt);
+            // colon (white)
+            g.DrawString(":", font, Brushes.White,
+                         new PointF(startX + wR + wC / 2, centerY), fmt);
+            // right R (green)
+            g.DrawString("R", font, Brushes.Green,
+                         new PointF(startX + wR + wC + wR / 2, centerY), fmt);
+
             // ── draw the rounded box behind "USD" ──
             var usdPadding = 2;
             var usdSize = new Size(40, cashBox.Height);
@@ -681,6 +711,16 @@ X + panelW - gutter, BY + breakBtnH,
                     CenterFormat
                 );
             }
+
+            var rrW = 40;
+            var rrH = 20;
+            // position it directly above the USD box, with 4px padding
+            rrBtnRect = new Rectangle(
+                usdRect.X,
+                usdRect.Y - rrH - 4,
+                rrW,
+                rrH
+            );
 
             // 4) RADIO BUTTONS (one gutter below the label)
             // 4) RADIO BUTTONS (one gutter below the label)
