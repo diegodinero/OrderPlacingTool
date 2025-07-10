@@ -933,7 +933,7 @@ X + panelW - gutter, BY + breakBtnH,
 
         private void PlaceOrderFromPSC()
         {
-            // pick up whichever PSC is on the chart
+            // 1) grab your PSC drawing
             var longPos = GetPSCPosition("Long Position");
             var shortPos = GetPSCPosition("Short Position");
             var psc = longPos ?? shortPos;
@@ -942,40 +942,62 @@ X + panelW - gutter, BY + breakBtnH,
             bool isLong = longPos != null;
             Side side = isLong ? Side.Buy : Side.Sell;
 
-            // read entry, SL, TP
+            // 2) read absolute prices from PSC
             double entryPrice = GetDrawingPrice(psc, "MiddlePoint");
             double slPrice = GetDrawingPrice(psc, isLong ? "BottomPoint" : "TopPoint");
             double tpPrice = GetDrawingPrice(psc, isLong ? "TopPoint" : "BottomPoint");
 
-            // compute ticks & qty
+            // 3) calculate quantity
             double slTicks = Math.Abs((entryPrice - slPrice) / Symbol.TickSize);
-            double tpTicks = Math.Abs((tpPrice - entryPrice) / Symbol.TickSize);
             double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
 
+            // 4) build absolute SL/TP holders
             var slHolder = SlTpHolder.CreateSL(
-        slPrice,                     // absolute stop-loss price
-        PriceMeasurement.Absolute,      // tell it “this is a price”
-        false,
-        double.NaN,
-        double.NaN
-    );
-
+                slPrice,
+                PriceMeasurement.Absolute,
+                false, double.NaN, double.NaN
+            );
             var tpHolder = SlTpHolder.CreateTP(
-                tpPrice,                     // absolute take-profit price
-                PriceMeasurement.Absolute,      // tell it “this is a price”
-                double.NaN,
-                double.NaN
+                tpPrice,
+                PriceMeasurement.Absolute,
+                double.NaN, double.NaN
             );
 
+            // 5) pick order type
+            double price = 0;
+            double triggerPrice = 0;
+            string orderTypeId;
+
+            if (MarketOrderMode)
+            {
+                orderTypeId = OrderType.Market.ToString();
+            }
+            else
+            {
+                double marketPrice = isLong ? Symbol.Ask : Symbol.Bid;
+                if ((isLong && marketPrice < entryPrice) ||
+                    (!isLong && marketPrice > entryPrice))
+                {
+                    orderTypeId = OrderType.Stop.ToString();
+                    triggerPrice = entryPrice;
+                }
+                else
+                {
+                    orderTypeId = OrderType.Limit.ToString();
+                    price = entryPrice;
+                }
+            }
+
+            // 6) construct & send
             var req = new PlaceOrderRequestParameters
             {
                 Symbol = Symbol,
                 Account = CurrentChart.Account,
-                OrderTypeId = MarketOrderMode ? OrderType.Market : OrderType.Limit,
+                OrderTypeId = orderTypeId,
                 Side = side,
                 Quantity = qty,
-                Price = MarketOrderMode ? 0 : entryPrice,
-                TriggerPrice = MarketOrderMode ? entryPrice : 0,
+                Price = price,
+                TriggerPrice = triggerPrice,
                 StopLoss = slHolder,
                 TakeProfit = tpHolder,
                 TimeInForce = TimeInForce.GTC
@@ -983,6 +1005,9 @@ X + panelW - gutter, BY + breakBtnH,
 
             Core.Instance.PlaceOrder(req);
         }
+
+
+
 
         void CurrentChart_MouseClick(object _, ChartMouseNativeEventArgs e)
         {
