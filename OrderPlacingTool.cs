@@ -298,6 +298,23 @@ new Button(
             // default to the “Cash Amount” radio being selected:
             lotRadios[(int)LotMode.Cash].IsChecked = true;
 
+            int usdPadding = 2;
+            var usdSize = new Size(40, cashBox.Height);
+            var usdRect = new Rectangle(
+                cashBox.Right - 4,
+                cashBox.Y - usdPadding / 2,
+                usdSize.Width + usdPadding,
+                cashBox.Height
+            );
+
+            // then compute rrBtnRect here:
+            int rrW = 40, rrH = 20;
+            var rrBtnRect = new Rectangle(
+                usdRect.X,
+                usdRect.Y - rrH - 4,
+                rrW,
+                rrH
+            );
 
             // width of the text‐box
             const int cashBoxWidth = 80;
@@ -672,6 +689,13 @@ X + panelW - gutter, BY + breakBtnH,
             float startX = rrBtnRect.X + (rrBtnRect.Width - totalW) / 2;
             float centerY = rrBtnRect.Y + rrBtnRect.Height / 2;
 
+            using (var path = RoundedRect(rrBtnRect, btnRadius))
+            using (var br = new SolidBrush(textBoxBackCol))
+            {
+                g.FillPath(br, path);
+                g.DrawPath(Pens.Gray, path);
+            }
+
             // left R (red)
             g.DrawString("R", font, Brushes.Red,
                          new PointF(startX + wR / 2, centerY), fmt);
@@ -906,10 +930,72 @@ X + panelW - gutter, BY + breakBtnH,
             limitOrderBtn.Reset("LIMIT");
             stopOrderBtn.Reset("STOP");
         }
+
+        private void PlaceOrderFromPSC()
+        {
+            // pick up whichever PSC is on the chart
+            var longPos = GetPSCPosition("Long Position");
+            var shortPos = GetPSCPosition("Short Position");
+            var psc = longPos ?? shortPos;
+            if (psc == null) return;
+
+            bool isLong = longPos != null;
+            Side side = isLong ? Side.Buy : Side.Sell;
+
+            // read entry, SL, TP
+            double entryPrice = GetDrawingPrice(psc, "MiddlePoint");
+            double slPrice = GetDrawingPrice(psc, isLong ? "BottomPoint" : "TopPoint");
+            double tpPrice = GetDrawingPrice(psc, isLong ? "TopPoint" : "BottomPoint");
+
+            // compute ticks & qty
+            double slTicks = Math.Abs((entryPrice - slPrice) / Symbol.TickSize);
+            double tpTicks = Math.Abs((tpPrice - entryPrice) / Symbol.TickSize);
+            double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
+
+            var slHolder = SlTpHolder.CreateSL(
+        slPrice,                     // absolute stop-loss price
+        PriceMeasurement.Absolute,      // tell it “this is a price”
+        false,
+        double.NaN,
+        double.NaN
+    );
+
+            var tpHolder = SlTpHolder.CreateTP(
+                tpPrice,                     // absolute take-profit price
+                PriceMeasurement.Absolute,      // tell it “this is a price”
+                double.NaN,
+                double.NaN
+            );
+
+            var req = new PlaceOrderRequestParameters
+            {
+                Symbol = Symbol,
+                Account = CurrentChart.Account,
+                OrderTypeId = MarketOrderMode ? OrderType.Market : OrderType.Limit,
+                Side = side,
+                Quantity = qty,
+                Price = MarketOrderMode ? 0 : entryPrice,
+                TriggerPrice = MarketOrderMode ? entryPrice : 0,
+                StopLoss = slHolder,
+                TakeProfit = tpHolder,
+                TimeInForce = TimeInForce.GTC
+            };
+
+            Core.Instance.PlaceOrder(req);
+        }
+
         void CurrentChart_MouseClick(object _, ChartMouseNativeEventArgs e)
         {
             var ne = (NativeMouseEventArgs)e;
             int x = ne.X, y = ne.Y;
+
+            // first check your R:R button
+            if (rrBtnRect.Contains(x, y))
+            {
+                PlaceOrderFromPSC();
+                return;
+            }
+
             double clickedPrice = CurrentChart.MainWindow.CoordinatesConverter.GetPrice(y);
 
             // 1) LIMIT toggle
