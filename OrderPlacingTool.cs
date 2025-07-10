@@ -114,6 +114,7 @@ namespace OrderPlacingTool
 
         // ── ENTRY ORDER BUTTONS ─────────────────────────────────────────────────────
         private Button limitOrderBtn, stopOrderBtn;
+        private bool buyArmed, sellArmed, rrArmed;
 
         enum LotMode { None, Cash, RiskBal, RiskEq }
         LotMode lotMode = LotMode.Cash;
@@ -1067,7 +1068,19 @@ X + panelW - gutter, BY + breakBtnH,
             // first check your R:R button
             if (rrBtnRect.Contains(x, y))
             {
-                PlaceOrderFromPSC();
+                rrArmed = !rrArmed;
+                if (rrArmed)
+                {
+                    // de-arm the others
+                    buyArmed = sellArmed = false;
+                    buyBtn.ResetText();
+                    sellBtn.ResetText();
+                }
+                else
+                {
+                    // run or cancel?
+                    PlaceOrderFromPSC();
+                }
                 return;
             }
 
@@ -1169,13 +1182,30 @@ X + panelW - gutter, BY + breakBtnH,
             // BUY BUTTON CLICKED?
             if (buyBtn.Contains(x, y))
             {
-                // First click → record entry
-                if (!isBuyFlow)
+                // toggle your “armed” flag
+                buyArmed = !buyArmed;
+
+                // **right here** update the button’s label
+                buyBtn.Text = buyArmed ? "Cancel" : "BUY";
+
+                if (buyArmed)
                 {
+                    // start your buy‐flow
                     isBuyFlow = true;
                     entryPrice = Symbol.Ask;
                     stopPrice = 0;
+
+                    // de‐arm the other buttons if you like
+                    sellArmed = rrArmed = false;
+                    sellBtn.Text = "SELL";      // reset their labels
+                    
                 }
+                else
+                {
+                    // user cancelled the buy
+                    isBuyFlow = false;
+                }
+
                 return;
             }
 
@@ -1201,6 +1231,8 @@ X + panelW - gutter, BY + breakBtnH,
                     TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
                 };
                 Core.PlaceOrder(req);
+                buyArmed = false;
+                buyBtn.Text = "BUY";
                 lastSide = Side.Buy;
                 lastEntryPrice = entryPrice;   // the price you captured on the first click
                 // reset
@@ -1211,11 +1243,25 @@ X + panelW - gutter, BY + breakBtnH,
             // SELL BUTTON CLICKED?
             if (sellBtn.Contains(x, y))
             {
-                if (!isSellFlow)
+                // toggle “armed” state
+                sellArmed = !sellArmed;
+                sellBtn.Text = sellArmed ? "Cancel" : "SELL";
+
+                if (sellArmed)
                 {
+                    // start your sell‐flow
                     isSellFlow = true;
                     entryPrice = Symbol.Bid;
                     stopPrice = 0;
+
+                    // de‐arm the other buttons
+                    buyArmed = rrArmed = false;
+                    buyBtn.Text = "BUY";
+                }
+                else
+                {
+                    // user hit “Cancel”
+                    isSellFlow = false;
                 }
                 return;
             }
@@ -1232,21 +1278,26 @@ X + panelW - gutter, BY + breakBtnH,
                     Symbol = Symbol,
                     Account = CurrentChart.Account,
                     OrderTypeId = OrderType.Market,
-                    Side = Side.Sell,   // ← explicitly SELL
+                    Side = Side.Sell,
                     Quantity = qty,
                     StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
                     TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
                 };
-                Core.PlaceOrder(req);
+                Core.Instance.PlaceOrder(req);
+
+                // ─── reset SELL button ────────────────────────────────────────────
+                sellArmed = false;
+                sellBtn.Text = "SELL";
+
                 lastSide = Side.Sell;
                 lastEntryPrice = entryPrice;
-
                 isSellFlow = false;
                 return;
             }
 
-                // flatten‐all button
-                if (btnAll.Contains(x, y))
+
+            // flatten‐all button
+            if (btnAll.Contains(x, y))
             {
                 Core.AdvancedTradingOperations.Flatten();
                 return;
@@ -1344,6 +1395,12 @@ X + panelW - gutter, BY + breakBtnH,
             {
                 this.Text = newText;
                 this.IsChecked = false;   // if you want to also clear any “checked” state
+                isClicked = false;
+            }
+
+            public void ResetText()
+            {
+                Text = this.Text;  // store “BUY”/“SELL”/“R:R” in a field
                 isClicked = false;
             }
 
