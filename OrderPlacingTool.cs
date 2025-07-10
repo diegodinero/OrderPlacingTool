@@ -429,15 +429,15 @@ X + panelW - gutter, BY + breakBtnH,
         }
 
         private IDrawing GetPSCPosition(string name)
-        {
-            return CurrentChart.Drawings
-                .GetAll(Symbol)
-                .Where(d =>
-                    SettingItemExtensions
-                        .GetItemByName(((ICustomizable)d).Settings, "CustomName")
-                        ?.Value?.ToString() == name)
-                .LastOrDefault();
-        }
+{
+    return CurrentChart.Drawings
+        .GetAll(Symbol)
+        .Where(d =>
+            SettingItemExtensions
+                .GetItemByName(((ICustomizable)d).Settings, "CustomName")
+                ?.Value?.ToString() == name)
+        .LastOrDefault();
+}
 
 
         private double GetDrawingPrice(IDrawing d, string pointName)
@@ -1200,6 +1200,17 @@ X + panelW - gutter, BY + breakBtnH,
                 if (btnAll.Contains(x, y))
             {
                 Core.AdvancedTradingOperations.Flatten();
+                return;
+            }
+
+            if (beBtn.Contains(x, y))
+            {
+                // grab every open position for this account & symbol
+                foreach (var pos in Core.Instance.Positions)
+                {
+                    if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol)
+                        Core.Instance.AdvancedTradingOperations.BreakEven(pos);
+                }
                 return;
             }
         }
