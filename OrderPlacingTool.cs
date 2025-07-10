@@ -138,6 +138,9 @@ namespace OrderPlacingTool
         double pipL = 2936.0, pipR = 2795.0;
         double cashAmt, beVal = 0.0;
 
+        // ── ENTRY ORDER BUTTONS ─────────────────────────────────────────────────────
+        private Button limitOrderBtn, stopOrderBtn;
+
         enum LotMode { None, Cash, RiskBal, RiskEq }
         LotMode lotMode = LotMode.Cash;
 
@@ -223,6 +226,31 @@ namespace OrderPlacingTool
                 X + panelW - gutter,              // right edge
                 Y + headerH + row1H,              // bottom edge
                 buyBack, buyPen, mainFont, textBrush
+            );
+
+            // ── Entry “Limit” / “Stop” buttons around the qty display ───────────────────
+            const int entryBtnW = 50, entryBtnH = 20;
+            float qtyCenterY = Y + headerH + row1H / 2f;
+            int btnX1 = X + (panelW - entryBtnW) / 2;
+
+            // 1) “Limit” above the 100
+            int limitY2 = (int)qtyCenterY - 4;
+            int limitY1 = limitY2 - entryBtnH;
+            limitOrderBtn = new Button(
+                "LIMIT",
+                btnX1, limitY1,
+                btnX1 + entryBtnW, limitY2,
+                partBack, partPen, smallFont, textBrush
+            );
+
+            // 2) “Stop” below the 100
+            int stopY1 = (int)qtyCenterY + 4;
+            int stopY2 = stopY1 + entryBtnH;
+            stopOrderBtn = new Button(
+                "STOP",
+                btnX1, stopY1,
+                btnX1 + entryBtnW, stopY2,
+                beBack, bePen, smallFont, textBrush
             );
 
             // Row3: Lot-Calc radios + cash input
@@ -433,13 +461,13 @@ X + panelW - gutter, BY + breakBtnH,
             {
                 // choose the correct “current” price stream
                 double current = lastSide == Side.Buy ? Symbol.Bid : Symbol.Ask;
-                // compute P&L in ticks, rounded to 1 decimal
+                // new: round to integer ticks
                 beVal = Math.Round(
                     (lastSide == Side.Buy
                         ? current - lastEntryPrice
                         : lastEntryPrice - current)
                     / Symbol.TickSize,
-                    1
+                    0
                 );
             }
             else
@@ -494,8 +522,13 @@ X + panelW - gutter, BY + breakBtnH,
             // 3) Row1: SELL / qty / BUY
             sellBtn.Draw(g, btnRadius);
             buyBtn.Draw(g, btnRadius);
-            g.DrawString(quantity.ToString(), mainFont, textBrush,
-                         X + panelW / 2, Y + headerH + row1H / 2, CenterFormat);
+            //g.DrawString(quantity.ToString(), mainFont, textBrush,
+                         //X + panelW / 2, Y + headerH + row1H / 2, CenterFormat);
+
+            // now draw Limit / Stop entry buttons
+            limitOrderBtn.Draw(g, btnRadius);
+            stopOrderBtn.Draw(g, btnRadius);
+
             // fetch live prices
             double bidPrice = Symbol.Bid;
             double askPrice = Symbol.Ask;
@@ -736,7 +769,7 @@ X + panelW - gutter, BY + breakBtnH,
             }
             
             g.DrawString(
-                beVal.ToString("F1"),
+                beVal.ToString("F0"),
                 smallFont,
                 textBrush,
                 beValueBox.X + beValueBox.Width / 2,
