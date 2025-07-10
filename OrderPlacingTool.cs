@@ -35,7 +35,9 @@ namespace OrderPlacingTool
         [InputParameter("Market Order Mode", 4)]
         public bool MarketOrderMode { get; set; } = false;
 
-        
+        [InputParameter("Auto Adjust SL/TP on Fill", 5)]
+        public bool AutoAdjustOnFill { get; set; } = true;
+
 
         //── LAYOUT CONSTANTS ─────────────────────────────────────────────────────────
         const int panelW = 320;
@@ -186,6 +188,27 @@ namespace OrderPlacingTool
             
         }
 
+        private void OnOrderFilled(OrderHistory hist)
+        {
+            // only act if the user enabled auto-adjust, it’s our account/symbol, and it just filled
+            if (!AutoAdjustOnFill
+                || hist.Account != CurrentChart.Account
+                || hist.Symbol != this.Symbol
+                || hist.Status != OrderStatus.Filled)
+                return;
+
+            // find the newly‐filled position(s) and move SL→BE
+            foreach (var pos in Core.Instance.Positions)
+            {
+                if (pos.Account == CurrentChart.Account
+                 && pos.Symbol == this.Symbol
+                 && pos.Id == hist.PositionId)
+                {
+                    Core.Instance.AdvancedTradingOperations.AdjustSlTp(pos);
+                }
+            }
+        }
+
 
         protected override void OnInit()
         {
@@ -196,6 +219,7 @@ namespace OrderPlacingTool
             LayoutUI();                            // initial layout
             CurrentChart.MouseClick += CurrentChart_MouseClick;
             Core.Instance.OrdersHistoryAdded += OnOrderClosed;
+            Core.Instance.OrdersHistoryAdded += OnOrderFilled;
         }
 
         /// <summary>
@@ -425,6 +449,7 @@ X + panelW - gutter, BY + breakBtnH,
         {
             CurrentChart.MouseClick -= CurrentChart_MouseClick;
             Core.Instance.OrdersHistoryAdded -= OnOrderClosed;
+            Core.Instance.OrdersHistoryAdded -= OnOrderFilled;
             base.Dispose();
         }
 
@@ -656,20 +681,34 @@ X + panelW - gutter, BY + breakBtnH,
                 LeftFormat
             );
 
-            // 3) PERCENT (right-aligned on same line)
-            string pct = (9.14).ToString("F2") + "%";  // replace with your real value
+            // 3) “Quantity” from PSC sizing
+            //    compute SL ticks based on your PSC-drawn entry & stop points:
+            var psc = GetPSCPosition("Long Position") ?? GetPSCPosition("Short Position");
+            double slTicks = 0;
+            if (psc != null)
+            {
+                double entry = GetDrawingPrice(psc, "MiddlePoint");
+                double sl = GetDrawingPrice(psc, entry == GetDrawingPrice(psc, "BottomPoint")
+                ? "TopPoint"
+                : "BottomPoint");
+                slTicks = Math.Abs((entry - sl) / Symbol.TickSize);
+            }
+            double qtyValue = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
+            string qtyDisplay = qtyValue.ToString("F2");
             using (var pctBrush = new SolidBrush(buyCol.Color1))
             {
-                var pctFmt = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
+                var lmt = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
                 g.DrawString(
-                    pct,
-                    smallFont,
-                    pctBrush,
-                    X + panelW - gutter,
-                    lotLabelY,
-                    pctFmt
+                qtyDisplay,
+                smallFont,
+                pctBrush,
+                X + panelW - gutter,
+                lotLabelY,
+                lmt
                 );
             }
+
+
 
             // draw the R:R button background & border
             using (var path = RoundedRect(rrBtnRect, btnRadius))
