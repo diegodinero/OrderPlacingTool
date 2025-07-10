@@ -532,8 +532,8 @@ X + panelW - gutter, BY + breakBtnH,
 
             var g = args.Graphics;
             // apply user scale
-            float s = (float)UIScale;
-            g.ScaleTransform(s, s);
+            //float s = (float)UIScale;
+            //g.ScaleTransform(s, s);
             var r = args.Rectangle;
             int X = XShift, Y = YShift;
 
@@ -1059,8 +1059,10 @@ X + panelW - gutter, BY + breakBtnH,
         {
             var ne = (NativeMouseEventArgs)e;
             // scale the hit-test back
-            int x = (int)(ne.X / UIScale);
-            int y = (int)(ne.Y / UIScale);
+            //int x = (int)(ne.X / UIScale);
+            //int y = (int)(ne.Y / UIScale);
+            int x = (int)(ne.X);
+            int y = (int)(ne.Y);
 
             // first check your R:R button
             if (rrBtnRect.Contains(x, y))
