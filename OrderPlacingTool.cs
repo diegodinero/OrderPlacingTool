@@ -532,9 +532,11 @@ X + panelW - gutter, BY + breakBtnH,
                 return;
 
             var g = args.Graphics;
-            // apply user scale
+            // ── 1) Scale *only* our UI ──────────────────────────────────────────
             float s = (float)UIScale;
+            var stateUI = g.Save();           // save before scaling
             g.ScaleTransform(s, s);
+
             var r = args.Rectangle;
             int X = XShift, Y = YShift;
 
@@ -956,13 +958,9 @@ X + panelW - gutter, BY + breakBtnH,
             btnLoss.Draw(g, btnRadius);
             btnStop.Draw(g, btnRadius);
 
-            g.Restore(saved);
-
-
-
-            // restore clip
-            g.SetClip(r, CombineMode.Replace);
+            g.Restore(stateUI);
         }
+
         private void ResetAllButtons()
         {
             limitOrderBtn.Reset("LIMIT");
@@ -1050,9 +1048,18 @@ X + panelW - gutter, BY + breakBtnH,
         void CurrentChart_MouseClick(object _, ChartMouseNativeEventArgs e)
         {
             var ne = (NativeMouseEventArgs)e;
-            // scale the hit-test back
-            int x = (int)(ne.X / UIScale);
-            int y = (int)(ne.Y / UIScale);
+            // use native chart coords directly
+            int rawX = ne.X;
+            int rawY = ne.Y;
+
+            // 1) price should come from rawY (chart-native)
+            double clickedPrice = CurrentChart.MainWindow
+                                      .CoordinatesConverter
+                                      .GetPrice(rawY);
+
+            // 2) hit-testing on your scaled UI needs logical coords:
+            int x = (int)(rawX / UIScale);
+            int y = (int)(rawY / UIScale);
             // first check your R:R button
             if (rrBtnRect.Contains(x, y))
             {
@@ -1072,7 +1079,7 @@ X + panelW - gutter, BY + breakBtnH,
                 return;
             }
 
-            double clickedPrice = CurrentChart.MainWindow.CoordinatesConverter.GetPrice(y);
+            
 
             // 1) LIMIT toggle
             if (limitOrderBtn.Contains(x, y))
