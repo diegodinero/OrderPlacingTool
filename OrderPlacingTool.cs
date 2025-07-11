@@ -349,9 +349,11 @@ new Button(
 
             // then compute rrBtnRect here:
             int rrW = 40, rrH = 20;
-                rrBtnRect = new Rectangle(
+            // anchor to top of USD, then pull down slightly
+            const int rrPullDown = 8;
+            rrBtnRect = new Rectangle(
                 usdRect.X,
-                usdRect.Y - rrH - 4,
+                usdRect.Y - rrH + rrPullDown,
                 rrW,
                 rrH
             );
@@ -717,6 +719,35 @@ X + panelW - gutter, BY + breakBtnH,
                 );
             }
 
+            // ── draw the rounded box behind "USD" ──
+            var usdPadding = 2;
+            var usdSize = new Size(40, cashBox.Height);
+            var usdRect = new Rectangle(
+                cashBox.Right - 4,               // shift left by 4px if you like
+                cashBox.Y - usdPadding / 2,
+                usdSize.Width + usdPadding,
+                cashBox.Height
+            );
+
+            using (var path = RoundedRect(new RectangleF(usdRect.X, usdRect.Y, usdRect.Width, usdRect.Height), btnRadius))
+            using (var br = new SolidBrush(textBoxBackCol))
+            {
+                g.FillPath(br, path);
+                g.DrawPath(Pens.Gray, path);
+            }
+
+            // ── draw the USD text centered ──
+            using (var usdBrush = new SolidBrush(pipsAndCurrency))
+            {
+                g.DrawString(
+                    "USD",
+                    smallFont,
+                    usdBrush,
+                    usdRect.X + usdRect.Width / 2f,
+                    usdRect.Y + usdRect.Height / 2f,
+                    CenterFormat
+                );
+            }
 
 
             // draw the R:R button background & border
@@ -755,35 +786,7 @@ X + panelW - gutter, BY + breakBtnH,
             g.DrawString("R", font, Brushes.Green,
                          new PointF(startX + wR + wC + wR / 2, centerY), fmt);
 
-            // ── draw the rounded box behind "USD" ──
-            var usdPadding = 2;
-            var usdSize = new Size(40, cashBox.Height);
-            var usdRect = new Rectangle(
-                cashBox.Right - 4,               // shift left by 4px if you like
-                cashBox.Y - usdPadding / 2,
-                usdSize.Width + usdPadding,
-                cashBox.Height
-            );
-
-            using (var path = RoundedRect(new RectangleF(usdRect.X, usdRect.Y, usdRect.Width, usdRect.Height), btnRadius))
-            using (var br = new SolidBrush(textBoxBackCol))
-            {
-                g.FillPath(br, path);
-                g.DrawPath(Pens.Gray, path);
-            }
-
-            // ── draw the USD text centered ──
-            using (var usdBrush = new SolidBrush(pipsAndCurrency))
-            {
-                g.DrawString(
-                    "USD",
-                    smallFont,
-                    usdBrush,
-                    usdRect.X + usdRect.Width / 2f,
-                    usdRect.Y + usdRect.Height / 2f,
-                    CenterFormat
-                );
-            }
+            
 
 
             // 4) RADIO BUTTONS (one gutter below the label)
