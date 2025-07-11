@@ -375,7 +375,7 @@ X + gutter + breakBtnW, BY + breakBtnH,
         beBack, bePen, smallFont, textBrush
     );
 
-            partBtn = new Button("Close Part",
+            partBtn = new Button("Adjust SL/TP",
 X + panelW - gutter - breakBtnW, BY,
 X + panelW - gutter, BY + breakBtnH,
                  partBack, partPen, smallFont, textBrush
@@ -1293,6 +1293,17 @@ X + panelW - gutter, BY + breakBtnH,
                 return;
             }
 
+            // Adjust SL / TP on all current positions
+            if (partBtn.Contains(x, y))
+            {
+                foreach (var pos in Core.Instance.Positions)
+                {
+                    if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol)
+                        Core.Instance.AdvancedTradingOperations.AdjustSlTp(pos);
+                }
+                return;
+            }
+        
 
             // flatten‐all button
             if (btnAll.Contains(x, y))
