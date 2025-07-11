@@ -186,10 +186,12 @@ namespace OrderPlacingTool
 
         protected override void OnSettingsUpdated()
         {
-            base.OnSettingsUpdated();
+
+            
+            //base.OnSettingsUpdated();
             BuildBrushesAndPens();
             LayoutUI();
-            
+                      
         }
 
         private void OnOrderFilled(OrderHistory hist)
@@ -239,6 +241,16 @@ namespace OrderPlacingTool
             const int breakBtnW = 100;
             const int breakBtnH = 30;
 
+            // first—lay out your cash box
+            const int cashBoxWidth = 80;
+            int startLotY = Y + headerH + row1H + row2H + gutter;
+            cashBox = new Rectangle(
+                X + panelW - gutter - /* USD-label width */ 40 - cashBoxWidth,
+                startLotY + 1 * (row3H + gutter) + 4,
+                cashBoxWidth,
+                row3H - 8
+            );
+
             // Row1: SELL | qty | BUY
             sellBtn = new Button(
                 "SELL",
@@ -286,7 +298,7 @@ namespace OrderPlacingTool
 
             // Row3: Lot-Calc radios + cash input
             int radioX = X + gutter;
-            int startLotY = Y + headerH + row1H + row2H + gutter;
+            //int startLotY = Y + headerH + row1H + row2H + gutter;
             int rowHeight = row3H + gutter;
             int lotCount = 4;  // we have 4 radio buttons
 
@@ -337,7 +349,7 @@ new Button(
 
             // then compute rrBtnRect here:
             int rrW = 40, rrH = 20;
-            var rrBtnRect = new Rectangle(
+                rrBtnRect = new Rectangle(
                 usdRect.X,
                 usdRect.Y - rrH - 4,
                 rrW,
@@ -345,21 +357,9 @@ new Button(
             );
 
             // width of the text‐box
-            const int cashBoxWidth = 80;
+            //const int cashBoxWidth = 80;
             // 8px gutter to the right edge, plus say another 4px padding for the “USD” label
             int usdLabelWidth = 40;
-
-            cashBox = new Rectangle(
-                // panelX + panelW  gives us the right edge of the panel
-                // subtract gutter (8px), the USD label width (40px) and the box width
-                X + panelW - gutter - usdLabelWidth - cashBoxWidth,
-                // same Y as before
-                startLotY + 1 * rowHeight + 4,
-                cashBoxWidth,
-                row3H - 8
-            );
-
-
 
             // Row4: Break-Even & Partial now pushed below the entire Lot-Calc block
             int BY = startLotY
@@ -533,8 +533,8 @@ X + panelW - gutter, BY + breakBtnH,
 
             var g = args.Graphics;
             // apply user scale
-            //float s = (float)UIScale;
-            //g.ScaleTransform(s, s);
+            float s = (float)UIScale;
+            g.ScaleTransform(s, s);
             var r = args.Rectangle;
             int X = XShift, Y = YShift;
 
@@ -783,15 +783,6 @@ X + panelW - gutter, BY + breakBtnH,
                 );
             }
 
-            var rrW = 40;
-            var rrH = 20;
-            // position it directly above the USD box, with 4px padding
-            rrBtnRect = new Rectangle(
-                usdRect.X,
-                usdRect.Y - rrH - 4,
-                rrW,
-                rrH
-            );
 
             // 4) RADIO BUTTONS (one gutter below the label)
             // 4) RADIO BUTTONS (one gutter below the label)
@@ -1060,11 +1051,8 @@ X + panelW - gutter, BY + breakBtnH,
         {
             var ne = (NativeMouseEventArgs)e;
             // scale the hit-test back
-            //int x = (int)(ne.X / UIScale);
-            //int y = (int)(ne.Y / UIScale);
-            int x = (int)(ne.X);
-            int y = (int)(ne.Y);
-
+            int x = (int)(ne.X / UIScale);
+            int y = (int)(ne.Y / UIScale);
             // first check your R:R button
             if (rrBtnRect.Contains(x, y))
             {
