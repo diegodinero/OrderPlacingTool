@@ -1322,6 +1322,47 @@ X + panelW - gutter, BY + breakBtnH,
                 }
                 return;
             }
+
+            //–– Close only profitable positions
+            if (btnProfit.Contains(x, y))
+            {
+                foreach (var pos in Core.Instance.Positions)
+                {
+                    if (pos.Account == CurrentChart.Account
+                     && pos.Symbol == this.Symbol
+                     && pos.GrossPnL.Value > 0)                                   // only winners
+                        Core.Instance.AdvancedTradingOperations.Flatten(pos.Id); // close it
+                }
+                return;
+            }
+
+            //–– Close only losing positions
+            if (btnLoss.Contains(x, y))
+            {
+                foreach (var pos in Core.Instance.Positions)
+                {
+                    if (pos.Account == CurrentChart.Account
+                     && pos.Symbol == this.Symbol
+                     && pos.GrossPnL.Value < 0)                                   // only losers
+                        Core.Instance.AdvancedTradingOperations.Flatten(pos.Id); // close it
+                }
+                return;
+            }
+
+            //–– Cancel all pending Stop orders
+            if (btnStop.Contains(x, y))
+            {
+                foreach (var ord in Core.Instance.Orders)
+                {
+                    // only Stop orders for this symbol/account
+                    if (ord.Account == CurrentChart.Account
+                     && ord.Symbol == this.Symbol
+                     && ord.OrderTypeId == OrderType.Stop.ToString()
+                     && ord.Status != OrderStatus.Inactive)
+                        Core.Instance.AdvancedTradingOperations.CancelOrders();
+                }
+                return;
+            }
         }
 
 
