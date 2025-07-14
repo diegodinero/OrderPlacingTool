@@ -41,6 +41,13 @@ namespace OrderPlacingTool
         [InputParameter("UI Scale", 6, 0.5, 2, 0.1)]
         public double UIScale { get; set; } = 1.0;
 
+        [InputParameter("BE Display Mode", 7, variants: new object[] {
+    "Points",      "Points",
+    "Ticks",       "Ticks",
+    "Profit/Loss", "Profit/Loss"
+})]
+        public string BEValueMode { get; set; } = "Ticks";
+
 
         //── LAYOUT CONSTANTS ─────────────────────────────────────────────────────────
         const int panelW = 320;
@@ -877,21 +884,69 @@ X + panelW - gutter, BY + breakBtnH,
                 g.DrawPath(Pens.Gray, path);
             }
 
-            //── draw BE value with dynamic color ─────────────────────────────────────────
-            Brush beBrush = beVal < 0
-                ? Brushes.Red
-                : beVal > 0
-                    ? Brushes.Green
-                    : textBrush;   // zero stays white (or whatever your textBrush is)
 
+
+            // ── compute & pick display text ─────────────────────────────────────────────
+            string beText;
+            Brush beBrush = textBrush;  // default white
+
+            if (lastEntryPrice == 0)
+            {
+                // no trade open → always "0.0" in white
+                beText = "0.0";
+            }
+            else
+            {
+                // there is a trade → compute ticks
+                double beTicks = Math.Round(
+                    (lastSide == Side.Buy
+                        ? Symbol.Bid - lastEntryPrice
+                        : lastEntryPrice - Symbol.Ask)
+                    / Symbol.TickSize,
+                    0
+                );
+
+                if (BEValueMode == "Ticks")
+                {
+                    beText = beTicks.ToString("F0");
+                }
+                else if (BEValueMode == "Points")
+                {
+                    beText = (beTicks * Symbol.TickSize).ToString("F2");
+                }
+                else // Profit/Loss
+                {
+                    var pos = Core.Instance.Positions.FirstOrDefault(p =>
+                        p.Account == CurrentChart.Account &&
+                        p.Symbol == this.Symbol);
+                    double pnl = pos != null ? pos.GrossPnL.Value : 0.0;
+                    beText = pnl.ToString("F2");
+                }
+
+                // choose red/green for ticks/points but keep 0 white
+                if (BEValueMode != "Profit/Loss")
+                {
+                    if (beTicks < 0) beBrush = Brushes.Red;
+                    else if (beTicks > 0) beBrush = Brushes.Green;
+                }
+                else
+                {
+                    // for Profit/Loss: color by PnL
+                    if (double.Parse(beText) < 0) beBrush = Brushes.Red;
+                    else if (double.Parse(beText) > 0) beBrush = Brushes.Green;
+                }
+            }
+
+            // ── draw the text ────────────────────────────────────────────────────────────
             g.DrawString(
-                beVal.ToString("F0"),
+                beText,
                 smallFont,
                 beBrush,
                 beValueBox.X + beValueBox.Width / 2,
                 beValueBox.Y + beValueBox.Height / 2,
                 CenterFormat
             );
+
             int labelY = BY + row4H + gutter / 2;
 
             // ── divider above the Close-Trades/Close-Orders block ──
