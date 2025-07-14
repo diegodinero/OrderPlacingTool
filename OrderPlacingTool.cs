@@ -876,11 +876,18 @@ X + panelW - gutter, BY + breakBtnH,
                     g.FillPath(br, path);
                 g.DrawPath(Pens.Gray, path);
             }
-            
+
+            //── draw BE value with dynamic color ─────────────────────────────────────────
+            Brush beBrush = beVal < 0
+                ? Brushes.Red
+                : beVal > 0
+                    ? Brushes.Green
+                    : textBrush;   // zero stays white (or whatever your textBrush is)
+
             g.DrawString(
                 beVal.ToString("F0"),
                 smallFont,
-                textBrush,
+                beBrush,
                 beValueBox.X + beValueBox.Width / 2,
                 beValueBox.Y + beValueBox.Height / 2,
                 CenterFormat
