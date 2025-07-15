@@ -1358,14 +1358,27 @@ X + panelW - gutter, BY + breakBtnH,
             // Adjust SL / TP on all current positions
             if (partBtn.Contains(x, y))
             {
+                // 1) Adjust SL/TP on every open position for this symbol/account
                 foreach (var pos in Core.Instance.Positions)
                 {
                     if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol)
                         Core.Instance.AdvancedTradingOperations.AdjustSlTp(pos);
                 }
+
+                // 2) Now re‑read the (single consolidated) position’s entry price
+                var consolidated = Core.Instance.Positions
+                    .FirstOrDefault(p => p.Account == CurrentChart.Account
+                                      && p.Symbol == this.Symbol);
+                if (consolidated != null)
+                {
+                    // use the property your API exposes for average entry price
+                    lastEntryPrice = consolidated.OpenPrice;  // or .Price if that’s the correct property
+                    lastSide = consolidated.Side;
+                }
+
                 return;
             }
-        
+
 
             // flatten‐all button
             if (btnAll.Contains(x, y))
