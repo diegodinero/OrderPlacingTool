@@ -42,10 +42,11 @@ namespace OrderPlacingTool
         public double UIScale { get; set; } = 1.0;
 
         [InputParameter("BE Display Mode", 7, variants: new object[] {
-    "Points",      "Points",
-    "Ticks",       "Ticks",
-    "Profit/Loss", "Profit/Loss"
-})]
+        "Off",         "Off",
+        "Points",      "Points",
+        "Ticks",       "Ticks",
+        "Profit/Loss", "Profit/Loss"
+        })]
         public string BEValueMode { get; set; } = "Ticks";
 
 
@@ -909,6 +910,10 @@ X + panelW - gutter, BY + breakBtnH,
                 if (BEValueMode == "Ticks")
                 {
                     beText = beTicks.ToString("F0");
+                }
+                else if (BEValueMode == "Off")
+                {
+                    beText = "";
                 }
                 else if (BEValueMode == "Points")
                 {
