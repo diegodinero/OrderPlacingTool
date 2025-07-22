@@ -49,6 +49,9 @@ namespace OrderPlacingTool
         })]
         public string BEValueMode { get; set; } = "Ticks";
 
+        [InputParameter("Lock Buttons", 15)]
+        public bool LockButtons { get; set; } = false;
+
 
         //── LAYOUT CONSTANTS ─────────────────────────────────────────────────────────
         const int panelW = 320;
@@ -111,6 +114,7 @@ namespace OrderPlacingTool
         Button[] lotRadios;
         Rectangle cashBox;
         private Rectangle rrBtnRect;
+        private Rectangle lockRect;
         Button beBtn, partBtn;
         Button btnAll, btnProfit, btnLoss, btnStop;
         Rectangle labelCloseTrades, labelCloseOrders;
@@ -451,6 +455,11 @@ X + panelW - gutter, BY + breakBtnH,
                 smallBack, smallPen, smallFont, textBrush
             );
 
+            int lockH = headerH - 8;
+            int lockW = (int)(lockH * 0.75f);
+            int lockX = XShift + panelW - gutter - lockW;
+            int lockY = YShift + (headerH - lockH) / 2;
+            lockRect = new Rectangle(lockX, lockY, lockW, lockH);
 
 
 
@@ -536,6 +545,89 @@ X + panelW - gutter, BY + breakBtnH,
             }
         }
 
+        /// <summary>
+        /// Draws a simple padlock at (x,y) of size (w×h).
+        /// </summary>
+        private void DrawPadlock(Graphics g, int x, int y, int w, int h)
+        {
+            // shackle will be the top third of the height
+            int shackleH = h / 3;
+            int bodyH = h - shackleH;
+
+            // 1) draw the body of the lock
+            var bodyRect = new Rectangle(x, y + shackleH, w, bodyH);
+            using (var fill = new SolidBrush(Color.Gold))
+                g.FillRectangle(fill, bodyRect);
+            g.DrawRectangle(Pens.Black, bodyRect);
+
+            // 2) draw the shackle as a semi‑circle
+            //    make its diameter equal to lock‑body width
+            var arcRect = new Rectangle(x, y, w, shackleH * 2);
+            g.DrawArc(Pens.Black, arcRect, 180, 180);
+        }
+
+        /// <summary>
+        /// Draws only the outline of a padlock (no fill), in white.
+        /// </summary>
+        private void DrawPadlockOutline(Graphics g, int x, int y, int w, int h)
+        {
+            // same shackle‑height logic:
+            int shackleH = h / 3;
+            int bodyH = h - shackleH;
+
+            // 1) outline the shackle arc
+            var arcRect = new Rectangle(x, y, w, shackleH * 2);
+            using (var pen = new Pen(Color.White, 2))
+                g.DrawArc(pen, arcRect, 180, 180);
+
+            // 2) outline the body rectangle
+            var bodyRect = new Rectangle(x, y + shackleH, w, bodyH);
+            using (var pen = new Pen(Color.White, 2))
+                g.DrawRectangle(pen, bodyRect);
+        }
+
+        /// <summary>
+        /// Draws a stylized padlock icon. 
+        /// Body is red when locked, gold when unlocked. 
+        /// When unlocked, the shackle is “open” (shifted right).
+        /// </summary>
+        private void DrawPadlockIcon(Graphics g, int x, int y, int w, int h, bool locked)
+        {
+            // top half = shackle, bottom half = body
+            int shackleH = h / 2;
+            int bodyH = h - shackleH;
+
+            // define body & shackle rectangles
+            var bodyRect = new Rectangle(x, y + shackleH, w, bodyH);
+            var shackleRect = new Rectangle(x, y, w, shackleH * 2);
+
+            // 1) Fill the body: red if locked, gold if unlocked
+            using (var brush = new SolidBrush(locked ? Color.Red : Color.Gold))
+                g.FillRectangle(brush, bodyRect);
+
+            // 2) Outline everything in black
+            using (var pen = new Pen(Color.Black, 2))
+            {
+                // outline the body
+                g.DrawRectangle(pen, bodyRect);
+
+                // draw the shackle
+                if (locked)
+                {
+                    // closed shackle
+                    g.DrawArc(pen, shackleRect, 180, 180);
+                }
+                else
+                {
+                    // open shackle: shift arc right by 1/4 width
+                    var openRect = shackleRect;
+                    openRect.X += w / 4;
+                    g.DrawArc(pen, openRect, 180, 180);
+                }
+            }
+        }
+
+
         public override void OnPaintChart(PaintChartEventArgs args)
         {
             if (HistoricalData.Count != Count)
@@ -583,6 +675,14 @@ X + panelW - gutter, BY + breakBtnH,
                 g.FillRectangle(br, hdr);
             g.DrawString("Trade Manager", titleFont, textBrush,
                          X + panelW / 2, Y + headerH / 2, CenterFormat);
+
+
+            DrawPadlockIcon(
+    args.Graphics,
+    lockRect.X, lockRect.Y,
+    lockRect.Width, lockRect.Height,
+    locked: LockButtons
+);
 
             // 3) Row1: SELL / qty / BUY
             sellBtn.Draw(g, btnRadius);
@@ -1130,6 +1230,23 @@ X + panelW - gutter, BY + breakBtnH,
             // 2) hit-testing on your scaled UI needs logical coords:
             int x = (int)(rawX / UIScale);
             int y = (int)(rawY / UIScale);
+
+            // 1) did we click the lock?
+            if (lockRect.Contains(x, y))
+            {
+                LockButtons = !LockButtons;     // toggle the flag
+                LayoutUI();                     // recompute anything that depends on it
+                return;                         // consume the click
+            }
+
+            // 2) now your old "if (LockButtons) { only Flatten }" logic...
+            if (LockButtons)
+            {
+                if (btnAll.Contains(x, y))
+                    Core.AdvancedTradingOperations.Flatten();
+                return;
+            }
+
             // first check your R:R button
             if (rrBtnRect.Contains(x, y))
             {
@@ -1445,6 +1562,39 @@ X + panelW - gutter, BY + breakBtnH,
             }
         }
 
+        public override IList<SettingItem> Settings
+        {
+            get
+            {
+                var settings = base.Settings;
+                var sg = settings.FirstOrDefault()?.SeparatorGroup;
+
+                // … your existing settings …
+
+                settings.Add(new SettingItemBoolean("lockButtons", LockButtons)
+                {
+                    Text = "Lock Buttons",
+                    SeparatorGroup = sg
+                });
+
+                return settings;
+            }
+            set
+            {
+                // … your existing TryGetValue calls …
+
+                // read into a local first…
+                value.TryGetValue<bool>("lockButtons", out var lockVal);
+                // …then assign to the property
+                LockButtons = lockVal;
+                base.Settings = value;
+
+                BuildBrushesAndPens();
+                LayoutUI();
+            }
+        }
+
+
 
         private double GetVolumeByFixedAmount(Symbol symbol, int amountToRisk, double slTicks)
         {
@@ -1585,7 +1735,9 @@ X + panelW - gutter, BY + breakBtnH,
                     using (var white = new SolidBrush(Color.White))
                         g.FillEllipse(white, inner);
                 }
-            }       
+            }
+
+            
 
             public bool Contains(int x, int y)
                 => x >= X1 && x < X2 && y >= Y1 && y < Y2;
