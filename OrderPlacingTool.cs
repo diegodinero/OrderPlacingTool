@@ -48,8 +48,6 @@ namespace OrderPlacingTool
         "Profit/Loss", "Profit/Loss"
         })]
         public string BEValueMode { get; set; } = "Ticks";
-
-        [InputParameter("Lock Buttons", 15)]
         public bool LockButtons { get; set; } = false;
 
 
@@ -1561,40 +1559,6 @@ X + panelW - gutter, BY + breakBtnH,
                 return;
             }
         }
-
-        public override IList<SettingItem> Settings
-        {
-            get
-            {
-                var settings = base.Settings;
-                var sg = settings.FirstOrDefault()?.SeparatorGroup;
-
-                // … your existing settings …
-
-                settings.Add(new SettingItemBoolean("lockButtons", LockButtons)
-                {
-                    Text = "Lock Buttons",
-                    SeparatorGroup = sg
-                });
-
-                return settings;
-            }
-            set
-            {
-                // … your existing TryGetValue calls …
-
-                // read into a local first…
-                value.TryGetValue<bool>("lockButtons", out var lockVal);
-                // …then assign to the property
-                LockButtons = lockVal;
-                base.Settings = value;
-
-                BuildBrushesAndPens();
-                LayoutUI();
-            }
-        }
-
-
 
         private double GetVolumeByFixedAmount(Symbol symbol, int amountToRisk, double slTicks)
         {
