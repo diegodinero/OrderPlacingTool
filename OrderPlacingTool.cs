@@ -1310,7 +1310,7 @@ X + panelW - gutter, BY + breakBtnH,
                     var req = new PlaceOrderRequestParameters
                     {
                         Symbol = Symbol,
-                        Account = CurrentChart.Account,
+                        Account = tradeParams.account,
                         OrderTypeId = OrderType.Limit,
                         Side = tradeParams.price > tradeParams.slPrice ? Side.Buy : Side.Sell,
                         Price = tradeParams.price,
@@ -1560,6 +1560,33 @@ X + panelW - gutter, BY + breakBtnH,
             }
         }
 
+        public override IList<SettingItem> Settings
+        {
+            get
+            {
+                // 1) Grab the base list of settings
+                var settings = base.Settings;
+
+                // 2) Prepend a readonly string showing the current account
+                var accountName = this.CurrentChart?.Account?.Name ?? "<none>";
+                var si = new SettingItemString(
+                    "CurrentAccountName",     // internal name
+                    accountName,              // default/value
+                    0                         // order index (ignored, but required)
+                );
+                si.Text = "Current Account";
+                si.Enabled = false;          // make it read‑only
+                settings.Insert(0, si);
+
+                return settings;
+            }
+            set
+            {
+                // no need to change anything on set
+                base.Settings = value;
+            }
+        }
+
         private double GetVolumeByFixedAmount(Symbol symbol, int amountToRisk, double slTicks)
         {
             if (DoubleExtensions.IsNanOrDefault(symbol.Bid) || DoubleExtensions.IsNanOrDefault(symbol.TickSize))
@@ -1700,6 +1727,7 @@ X + panelW - gutter, BY + breakBtnH,
                         g.FillEllipse(white, inner);
                 }
             }
+
 
             
 
