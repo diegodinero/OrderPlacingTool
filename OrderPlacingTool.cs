@@ -13,6 +13,7 @@ using TradingPlatform.BusinessLayer;
 using TradingPlatform.BusinessLayer.Chart;
 using TradingPlatform.BusinessLayer.Native;
 using TradingPlatform.BusinessLayer.Utils;
+using System.Threading.Tasks;
 
 #nullable disable
 namespace OrderPlacingTool
@@ -137,6 +138,12 @@ namespace OrderPlacingTool
         // 1) Add these two fields at the top of your class:
         private Side lastSide;
         private double lastEntryPrice;
+
+        // 1) flag so we only hook AccountChanged once
+        private bool isAccountHooked = false;
+
+        // 2) store the result of the last PlaceOrder call
+        private TradingOperationResult tradingOperationResult = null;
         //──────────────────────────────────────────────────────────────────────────────
         public OrderPlacingTool()
         {
@@ -228,15 +235,32 @@ namespace OrderPlacingTool
 
         protected override void OnInit()
         {
-            base.OnInit();                           // ← make sure the base wiring happens
-            tradeParams.symbol = this.Symbol;       // ← grab the chart’s symbol
+            base.OnInit();
+
+            // … your existing setup …
+
+            tradeParams.symbol = this.Symbol;
             tradeParams.account = this.CurrentChart.Account;
 
-            LayoutUI();                            // initial layout
+            // keep tradeParams.account up‑to‑date when the user switches account
+            if (!isAccountHooked)
+            {
+                isAccountHooked = true;
+                CurrentChart.AccountChanged += CurrentChart_AccountChanged;
+            }
+
+            LayoutUI();
             CurrentChart.MouseClick += CurrentChart_MouseClick;
             Core.Instance.OrdersHistoryAdded += OnOrderClosed;
             Core.Instance.OrdersHistoryAdded += OnOrderFilled;
         }
+
+        private void CurrentChart_AccountChanged(object sender, ChartEventArgs e)
+        {
+            tradeParams.account = this.CurrentChart.Account;
+        }
+
+
 
         /// <summary>
         /// (Re)positions *all* of your buttons, boxes, radios, etc.
@@ -1210,6 +1234,27 @@ X + panelW - gutter, BY + breakBtnH,
             Core.Instance.PlaceOrder(req);
         }
 
+        private void ManualReset()
+        {
+            // reset your limit/stop entry buttons
+            limitOrderBtn?.Reset("LIMIT");
+            stopOrderBtn?.Reset("STOP");
+
+            // clear any PSC‑R:R‐flow flags
+            buyArmed = sellArmed = rrArmed = false;
+            sellBtn.ResetText();
+            buyBtn.ResetText();
+
+            // reset partial‑close & BE buttons if you like
+            partBtn?.Reset("Adjust SL/TP");
+            beBtn?.Reset("Move SL To BE");
+
+            // reset your tradeParams
+            tradeParams.Reset();
+
+            // clear the stored operation result
+            tradingOperationResult = null;
+        }
 
 
 
@@ -1229,15 +1274,15 @@ X + panelW - gutter, BY + breakBtnH,
             int x = (int)(rawX / UIScale);
             int y = (int)(rawY / UIScale);
 
-            // 1) did we click the lock?
+            // padlock toggle
             if (lockRect.Contains(x, y))
             {
-                LockButtons = !LockButtons;     // toggle the flag
-                LayoutUI();                     // recompute anything that depends on it
-                return;                         // consume the click
+                LockButtons = !LockButtons;
+                LayoutUI();
+                return;
             }
 
-            // 2) now your old "if (LockButtons) { only Flatten }" logic...
+            // when locked, only “All” (flatten) works
             if (LockButtons)
             {
                 if (btnAll.Contains(x, y))
@@ -1245,26 +1290,26 @@ X + panelW - gutter, BY + breakBtnH,
                 return;
             }
 
+
             // first check your R:R button
             if (rrBtnRect.Contains(x, y))
             {
                 rrArmed = !rrArmed;
                 if (rrArmed)
                 {
-                    // de-arm the others
                     buyArmed = sellArmed = false;
                     buyBtn.ResetText();
                     sellBtn.ResetText();
                 }
                 else
                 {
-                    // run or cancel?
                     PlaceOrderFromPSC();
                 }
                 return;
             }
 
-            
+
+
 
             // 1) LIMIT toggle
             if (limitOrderBtn.Contains(x, y))
@@ -1291,161 +1336,199 @@ X + panelW - gutter, BY + breakBtnH,
             }
 
             // 3) LIMIT price picking
+            // 3) LIMIT price picking
             if (limitOrderBtn.isClicked)
             {
+                var mainWindow = CurrentChart.MainWindow;
+                // first click → entry, second click → SL
                 if (tradeParams.price == 0)
-                    tradeParams.price = clickedPrice;
+                    tradeParams.price = mainWindow.CoordinatesConverter.GetPrice(rawY);
                 else if (tradeParams.slPrice == 0)
-                    tradeParams.slPrice = clickedPrice;
+                    tradeParams.slPrice = mainWindow.CoordinatesConverter.GetPrice(rawY);
 
                 if (tradeParams.price != 0 && tradeParams.slPrice != 0)
                 {
-                    double tickSize = tradeParams.symbol.TickSize;
-                    // safely using the symbol you stored in OnInit
-                    double slTicks = Math.Abs((tradeParams.price - tradeParams.slPrice) / tickSize);
+                    tradeParams.orderTypeId = OrderType.Limit.ToString();
+                    tradeParams.side = tradeParams.price > tradeParams.slPrice
+                                               ? Side.Buy
+                                               : Side.Sell;
+                    // round to tick
+                    tradeParams.price = tradeParams.symbol.RoundPriceToTickSize(tradeParams.price, double.NaN);
+                    tradeParams.slPrice = tradeParams.symbol.RoundPriceToTickSize(tradeParams.slPrice, double.NaN);
 
+                    double slTicks = tradeParams.side == Side.Buy
+                                   ? (tradeParams.price - tradeParams.slPrice) / tradeParams.symbol.TickSize
+                                   : (tradeParams.slPrice - tradeParams.price) / tradeParams.symbol.TickSize;
                     double tpTicks = slTicks * RewardMultiplier;
-                    double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
+                    tradeParams.lotSize = GetVolumeByFixedAmount(tradeParams.symbol, RiskAmount, slTicks);
 
-                    var req = new PlaceOrderRequestParameters
+                    Task.Run(() =>
                     {
-                        Symbol = Symbol,
-                        Account = tradeParams.account,
-                        OrderTypeId = OrderType.Limit,
-                        Side = tradeParams.price > tradeParams.slPrice ? Side.Buy : Side.Sell,
-                        Price = tradeParams.price,
-                        Quantity = qty,
-                        StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
-                        TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
-                    };
-                    Core.Instance.PlaceOrder(req);
+                        var req = new PlaceOrderRequestParameters();
+                        req.Symbol = tradeParams.symbol;
+                        req.Account = tradeParams.account;   // now always kept up to date
+                        req.OrderTypeId = OrderType.Limit.ToString();
+                        req.Side = tradeParams.side;
+                        req.Price = tradeParams.price;     // crucial for LIMIT
+                        req.Quantity = tradeParams.lotSize;
+                        req.StopLoss = SlTpHolder.CreateSL(
+                                              slTicks,
+                                              PriceMeasurement.Offset,
+                                              false, double.NaN, double.NaN
+                                          );
+                        req.TakeProfit = RewardMultiplier > 0
+                                         ? SlTpHolder.CreateTP(
+                                             tpTicks,
+                                             PriceMeasurement.Offset,
+                                             double.NaN, double.NaN
+                                           )
+                                         : null;
 
-                    ResetAllButtons();
-                    tradeParams.Reset();
+                        Core.Instance.Loggers.Log(
+                            $"Placing Limit Order: Side={req.Side}, Price={req.Price}, SL Ticks={slTicks}, Qty={req.Quantity}",
+                            LoggingLevel.Trading,
+                            null
+                        );
+
+                        tradingOperationResult = Core.PlaceOrder(req);
+
+                        tradeParams.Reset();
+                        ResetAllButtons();
+                        ManualReset();
+                        ManualReset();
+                    });
                 }
                 return;
             }
+
+
 
             // 4) STOP price picking
             if (stopOrderBtn.isClicked)
             {
+                var mainWindow = CurrentChart.MainWindow;
                 if (tradeParams.price == 0)
-                    tradeParams.price = clickedPrice;
+                    tradeParams.price = mainWindow.CoordinatesConverter.GetPrice(rawY);
                 else if (tradeParams.slPrice == 0)
-                    tradeParams.slPrice = clickedPrice;
+                    tradeParams.slPrice = mainWindow.CoordinatesConverter.GetPrice(rawY);
 
                 if (tradeParams.price != 0 && tradeParams.slPrice != 0)
                 {
-                    double slTicks = Math.Abs((tradeParams.price - tradeParams.slPrice) / Symbol.TickSize);
+                    tradeParams.orderTypeId = OrderType.Stop.ToString();
+                    double marketAsk = tradeParams.symbol.Ask;
+                    tradeParams.side = tradeParams.price > marketAsk ? Side.Buy : Side.Sell;
+                    tradeParams.price = tradeParams.symbol.RoundPriceToTickSize(tradeParams.price, double.NaN);
+                    tradeParams.slPrice = tradeParams.symbol.RoundPriceToTickSize(tradeParams.slPrice, double.NaN);
+
+                    double slTicks = (tradeParams.side == Side.Buy
+                                        ? tradeParams.price - tradeParams.slPrice
+                                        : tradeParams.slPrice - tradeParams.price)
+                                     / tradeParams.symbol.TickSize;
                     double tpTicks = slTicks * RewardMultiplier;
-                    double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
+                    tradeParams.lotSize = GetVolumeByFixedAmount(tradeParams.symbol, RiskAmount, slTicks);
 
-                    var req = new PlaceOrderRequestParameters
+                    Task.Run(() =>
                     {
-                        Symbol = Symbol,
-                        Account = CurrentChart.Account,
-                        OrderTypeId = OrderType.Stop,
-                        Side = tradeParams.price > Symbol.Bid ? Side.Buy : Side.Sell,
-                        TriggerPrice = tradeParams.price,
-                        Quantity = qty,
-                        StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
-                        TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN),
-                        TimeInForce = TimeInForce.GTC
-                    };
-                    Core.Instance.PlaceOrder(req);
+                        var req = new PlaceOrderRequestParameters
+                        {
+                            Symbol = tradeParams.symbol,
+                            Account = this.CurrentChart.Account,
+                            OrderTypeId = OrderType.Stop.ToString(),
+                            Side = tradeParams.side,
+                            TriggerPrice = tradeParams.price,
+                            Quantity = tradeParams.lotSize,
+                            StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
+                            TakeProfit = RewardMultiplier > 0
+                                            ? SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                                            : null,
+                            TimeInForce = TimeInForce.GTC
+                        };
 
-                    ResetAllButtons();
-                    tradeParams.Reset();
+                        Core.Instance.Loggers.Log(
+                            $"Placing Stop Order: Side={req.Side}, TriggerPrice={req.TriggerPrice}, Qty={req.Quantity}",
+                            LoggingLevel.Trading,
+                            null
+                        );
+
+                        Core.Instance.PlaceOrder(req);
+                        tradeParams.Reset();
+                        ResetAllButtons();
+                    });
                 }
                 return;
             }
-            // BUY BUTTON CLICKED?
+
+            // BUY button armed
             if (buyBtn.Contains(x, y))
             {
-                // toggle your “armed” flag
                 buyArmed = !buyArmed;
-
-                // **right here** update the button’s label
                 buyBtn.Text = buyArmed ? "Cancel" : "BUY";
 
                 if (buyArmed)
                 {
-                    // start your buy‐flow
                     isBuyFlow = true;
                     entryPrice = Symbol.Ask;
                     stopPrice = 0;
-
-                    // de‐arm the other buttons if you like
+                    // de‑arm others
                     sellArmed = rrArmed = false;
-                    sellBtn.Text = "SELL";      // reset their labels
-                    
+                    sellBtn.Text = "SELL";
                 }
                 else
                 {
-                    // user cancelled the buy
                     isBuyFlow = false;
                 }
-
                 return;
             }
 
-            // We’re in BUY‐capture mode, and this is the *second* click anywhere outside BUY:
+            // finish BUY on second click
             if (isBuyFlow && stopPrice == 0)
             {
                 stopPrice = clickedPrice;
-
-                // compute risk parameters
                 double slTicks = Math.Abs((entryPrice - stopPrice) / Symbol.TickSize);
                 double tpTicks = slTicks * RewardMultiplier;
                 double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
 
-                // place a MARKET‐BUY
                 var req = new PlaceOrderRequestParameters
                 {
                     Symbol = Symbol,
-                    Account = CurrentChart.Account,
-                    OrderTypeId = OrderType.Market,
-                    Side = Side.Buy,    // ← explicitly BUY
+                    Account = this.CurrentChart.Account,
+                    OrderTypeId = OrderType.Market.ToString(),
+                    Side = Side.Buy,
                     Quantity = qty,
                     StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
                     TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
                 };
-                Core.PlaceOrder(req);
+                Core.Instance.PlaceOrder(req);
+
                 buyArmed = false;
                 buyBtn.Text = "BUY";
                 lastSide = Side.Buy;
-                lastEntryPrice = entryPrice;   // the price you captured on the first click
-                // reset
+                lastEntryPrice = entryPrice;
                 isBuyFlow = false;
                 return;
             }
 
-            // SELL BUTTON CLICKED?
+            // SELL button armed
             if (sellBtn.Contains(x, y))
             {
-                // toggle “armed” state
                 sellArmed = !sellArmed;
                 sellBtn.Text = sellArmed ? "Cancel" : "SELL";
-
                 if (sellArmed)
                 {
-                    // start your sell‐flow
                     isSellFlow = true;
                     entryPrice = Symbol.Bid;
                     stopPrice = 0;
-
-                    // de‐arm the other buttons
                     buyArmed = rrArmed = false;
                     buyBtn.Text = "BUY";
                 }
                 else
                 {
-                    // user hit “Cancel”
                     isSellFlow = false;
                 }
                 return;
             }
 
+            // finish SELL on second click
             if (isSellFlow && stopPrice == 0)
             {
                 stopPrice = clickedPrice;
@@ -1456,8 +1539,8 @@ X + panelW - gutter, BY + breakBtnH,
                 var req = new PlaceOrderRequestParameters
                 {
                     Symbol = Symbol,
-                    Account = CurrentChart.Account,
-                    OrderTypeId = OrderType.Market,
+                    Account = this.CurrentChart.Account,
+                    OrderTypeId = OrderType.Market.ToString(),
                     Side = Side.Sell,
                     Quantity = qty,
                     StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
@@ -1465,99 +1548,69 @@ X + panelW - gutter, BY + breakBtnH,
                 };
                 Core.Instance.PlaceOrder(req);
 
-                // ─── reset SELL button ────────────────────────────────────────────
                 sellArmed = false;
                 sellBtn.Text = "SELL";
-
                 lastSide = Side.Sell;
                 lastEntryPrice = entryPrice;
                 isSellFlow = false;
                 return;
             }
 
-            // Adjust SL / TP on all current positions
+
+            // Adjust SL/TP on fill
             if (partBtn.Contains(x, y))
             {
-                // 1) Adjust SL/TP on every open position for this symbol/account
                 foreach (var pos in Core.Instance.Positions)
-                {
                     if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol)
                         Core.Instance.AdvancedTradingOperations.AdjustSlTp(pos);
-                }
 
-                // 2) Now re‑read the (single consolidated) position’s entry price
                 var consolidated = Core.Instance.Positions
-                    .FirstOrDefault(p => p.Account == CurrentChart.Account
-                                      && p.Symbol == this.Symbol);
+                    .FirstOrDefault(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol);
                 if (consolidated != null)
                 {
-                    // use the property your API exposes for average entry price
-                    lastEntryPrice = consolidated.OpenPrice;  // or .Price if that’s the correct property
+                    lastEntryPrice = consolidated.OpenPrice;
                     lastSide = consolidated.Side;
                 }
-
                 return;
             }
 
 
-            // flatten‐all button
+            // flatten all
             if (btnAll.Contains(x, y))
             {
                 Core.AdvancedTradingOperations.Flatten();
                 return;
             }
 
-            if (beBtn.Contains(x, y))
-            {
-                // grab every open position for this account & symbol
-                foreach (var pos in Core.Instance.Positions)
-                {
-                    if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol)
-                        Core.Instance.AdvancedTradingOperations.BreakEven(pos);
-                }
-                return;
-            }
-
-            //–– Close only profitable positions
+            // only winners
             if (btnProfit.Contains(x, y))
             {
                 foreach (var pos in Core.Instance.Positions)
-                {
-                    if (pos.Account == CurrentChart.Account
-                     && pos.Symbol == this.Symbol
-                     && pos.GrossPnL.Value > 0)                                   // only winners
-                        Core.Instance.AdvancedTradingOperations.Flatten(pos.Id); // close it
-                }
+                    if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol && pos.GrossPnL.Value > 0)
+                        Core.AdvancedTradingOperations.Flatten(pos.Id);
                 return;
             }
 
-            //–– Close only losing positions
+            // only losers
             if (btnLoss.Contains(x, y))
             {
                 foreach (var pos in Core.Instance.Positions)
-                {
-                    if (pos.Account == CurrentChart.Account
-                     && pos.Symbol == this.Symbol
-                     && pos.GrossPnL.Value < 0)                                   // only losers
-                        Core.Instance.AdvancedTradingOperations.Flatten(pos.Id); // close it
-                }
+                    if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol && pos.GrossPnL.Value < 0)
+                        Core.AdvancedTradingOperations.Flatten(pos.Id);
                 return;
             }
 
-            //–– Cancel all pending Stop orders
+            // cancel all stops
             if (btnStop.Contains(x, y))
             {
                 foreach (var ord in Core.Instance.Orders)
-                {
-                    // only Stop orders for this symbol/account
-                    if (ord.Account == CurrentChart.Account
-                     && ord.Symbol == this.Symbol
+                    if (ord.Account == CurrentChart.Account && ord.Symbol == this.Symbol
                      && ord.OrderTypeId == OrderType.Stop.ToString()
                      && ord.Status != OrderStatus.Inactive)
-                        Core.Instance.AdvancedTradingOperations.CancelOrders();
-                }
+                        Core.AdvancedTradingOperations.CancelOrders();
                 return;
             }
+
         }
 
         public override IList<SettingItem> Settings
