@@ -1175,7 +1175,7 @@ X + panelW - gutter, BY + breakBtnH,
             double slPrice = GetDrawingPrice(psc, isLong ? "BottomPoint" : "TopPoint");
             double tpPrice = GetDrawingPrice(psc, isLong ? "TopPoint" : "BottomPoint");
 
-            // 3) calculate quantity
+            // 3) calculate quantity based on ticks
             double slTicks = Math.Abs((entryPrice - slPrice) / Symbol.TickSize);
             double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
 
@@ -1191,7 +1191,7 @@ X + panelW - gutter, BY + breakBtnH,
                 double.NaN, double.NaN
             );
 
-            // 5) pick order type
+            // 5) pick order type / price or trigger
             double price = 0;
             double triggerPrice = 0;
             string orderTypeId;
@@ -1216,11 +1216,11 @@ X + panelW - gutter, BY + breakBtnH,
                 }
             }
 
-            // 6) construct & send
+            // 6) construct & send using the *live* account
             var req = new PlaceOrderRequestParameters
             {
-                Symbol = Symbol,
-                Account = CurrentChart.Account,
+                Symbol = this.Symbol,
+                Account = this.CurrentChart.Account,    // ← live account here
                 OrderTypeId = orderTypeId,
                 Side = side,
                 Quantity = qty,
@@ -1231,8 +1231,16 @@ X + panelW - gutter, BY + breakBtnH,
                 TimeInForce = TimeInForce.GTC
             };
 
+            // debug log to confirm which account
+            Core.Instance.Loggers.Log(
+              $"[R:R] Placing {orderTypeId} via PSC on account “{req.Account?.Name}”",
+              LoggingLevel.Trading,
+              null
+            );
+
             Core.Instance.PlaceOrder(req);
         }
+
 
         private void ManualReset()
         {
