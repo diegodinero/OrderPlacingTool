@@ -16,6 +16,14 @@
     <OutputPath>C:\Users\LaDarrious\Desktop\Quantower\TradingPlatform\v1.144.2\..\..\Settings\Scripts\Indicators\OrderPlacingTool</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="lock_closed.png" />
+    <None Remove="lock_open.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="lock_closed.png" />
+    <EmbeddedResource Include="lock_open.png" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="System.Drawing.Common" Version="9.0.6" />
   </ItemGroup>
   <ItemGroup>

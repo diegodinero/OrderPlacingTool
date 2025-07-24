@@ -14,6 +14,9 @@ using TradingPlatform.BusinessLayer.Chart;
 using TradingPlatform.BusinessLayer.Native;
 using TradingPlatform.BusinessLayer.Utils;
 using System.Threading.Tasks;
+using System.Reflection;
+using System.Drawing;
+using System.IO;
 
 #nullable disable
 namespace OrderPlacingTool
@@ -106,7 +109,7 @@ namespace OrderPlacingTool
         };
 
         //── RUNTIME STATE ────────────────────────────────────────────────────────────
-
+        private Image _lockOpen, _lockClosed;
         private string _debugAccountName = "";
 
         Brush sellBack, buyBack, beBack, partBack, smallBack;
@@ -242,6 +245,11 @@ namespace OrderPlacingTool
 
             // … your existing setup …
 
+            var asm = Assembly.GetExecutingAssembly();
+            // adjust namespace/path to match where you put the files:
+            _lockOpen = LoadImage(asm, "OrderPlacingTool.lock_open.png");
+            _lockClosed = LoadImage(asm, "OrderPlacingTool.lock_closed.png");
+
             tradeParams.symbol = this.Symbol;
             tradeParams.account = this.CurrentChart.Account;
 
@@ -261,6 +269,16 @@ namespace OrderPlacingTool
         private void CurrentChart_AccountChanged(object sender, ChartEventArgs e)
         {
             tradeParams.account = this.CurrentChart.Account;
+        }
+
+        private Image LoadImage(Assembly asm, string resourceName)
+        {
+            using (Stream s = asm.GetManifestResourceStream(resourceName))
+            {
+                if (s == null)
+                    throw new InvalidOperationException($"Embedded resource not found: {resourceName}");
+                return Image.FromStream(s);
+            }
         }
 
 
@@ -480,8 +498,8 @@ X + panelW - gutter, BY + breakBtnH,
                 smallBack, smallPen, smallFont, textBrush
             );
 
-            int lockH = headerH - 8;
-            int lockW = (int)(lockH * 0.75f);
+            int lockH = 32 * 2;
+            int lockW = 32 * 2;
             int lockX = XShift + panelW - gutter - lockW;
             int lockY = YShift + (headerH - lockH) / 2;
             lockRect = new Rectangle(lockX, lockY, lockW, lockH);
@@ -713,12 +731,15 @@ X + panelW - gutter, BY + breakBtnH,
                          X + panelW / 2, Y + headerH / 2, CenterFormat);
 
 
-            DrawPadlockIcon(
-    args.Graphics,
-    lockRect.X, lockRect.Y,
-    lockRect.Width, lockRect.Height,
-    locked: LockButtons
-);
+            //DrawPadlockIcon(
+    //args.Graphics,
+    //lockRect.X, lockRect.Y,
+    //lockRect.Width, lockRect.Height,
+    //locked: LockButtons
+//);
+
+            var img = LockButtons ? _lockClosed : _lockOpen;
+            args.Graphics.DrawImage(img, lockRect.X, lockRect.Y, lockRect.Width, lockRect.Height);
 
             // 3) Row1: SELL / qty / BUY
             sellBtn.Draw(g, btnRadius);
