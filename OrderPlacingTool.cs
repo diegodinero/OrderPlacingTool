@@ -106,6 +106,9 @@ namespace OrderPlacingTool
         };
 
         //── RUNTIME STATE ────────────────────────────────────────────────────────────
+
+        private string _debugAccountName = "";
+
         Brush sellBack, buyBack, beBack, partBack, smallBack;
         Pen sellPen, buyPen, bePen, partPen, smallPen;
 
@@ -664,7 +667,18 @@ X + panelW - gutter, BY + breakBtnH,
             var r = args.Rectangle;
             int X = XShift, Y = YShift;
 
-
+                        // draw debug account text above the panel
+            if (!string.IsNullOrEmpty(_debugAccountName))
+                            {
+                g.DrawString(
+                _debugAccountName,
+                smallFont,
+                Brushes.Yellow,
+                XShift,
+                YShift - smallFont.Height - 4,
+                LeftFormat
+                                );
+                            }
 
             int panelBottom = btnStop.Y2 + gutter + row2H;
             // our rectangle starts at Y-4, so its height is panelBottom - (Y - 4)
@@ -1161,84 +1175,80 @@ X + panelW - gutter, BY + breakBtnH,
 
         private void PlaceOrderFromPSC()
         {
-            // 1) grab your PSC drawing
+            // 1) grab PSC drawing
             var longPos = GetPSCPosition("Long Position");
             var shortPos = GetPSCPosition("Short Position");
             var psc = longPos ?? shortPos;
-            if (psc == null) return;
+            if (psc == null)
+                return;
 
+            // 2) determine side
             bool isLong = longPos != null;
             Side side = isLong ? Side.Buy : Side.Sell;
 
-            // 2) read absolute prices from PSC
-            double entryPrice = GetDrawingPrice(psc, "MiddlePoint");
-            double slPrice = GetDrawingPrice(psc, isLong ? "BottomPoint" : "TopPoint");
-            double tpPrice = GetDrawingPrice(psc, isLong ? "TopPoint" : "BottomPoint");
+            // 3) read & round entry, SL, TP from PSC
+            double entry = GetDrawingPrice(psc, "MiddlePoint");
+            double sl = isLong
+                           ? GetDrawingPrice(psc, "BottomPoint")
+                           : GetDrawingPrice(psc, "TopPoint");
+            double tp = isLong
+                           ? GetDrawingPrice(psc, "TopPoint")
+                           : GetDrawingPrice(psc, "BottomPoint");
 
-            // 3) calculate quantity based on ticks
-            double slTicks = Math.Abs((entryPrice - slPrice) / Symbol.TickSize);
+            entry = Symbol.RoundPriceToTickSize(entry, double.NaN);
+            sl = Symbol.RoundPriceToTickSize(sl, double.NaN);
+            tp = Symbol.RoundPriceToTickSize(tp, double.NaN);
+
+            // 4) compute ticks & quantity
+            double slTicks = Math.Abs((entry - sl) / Symbol.TickSize);
+            double tpTicks = Math.Abs((tp - entry) / Symbol.TickSize);
             double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
 
-            // 4) build absolute SL/TP holders
-            var slHolder = SlTpHolder.CreateSL(
-                slPrice,
-                PriceMeasurement.Absolute,
-                false, double.NaN, double.NaN
-            );
-            var tpHolder = SlTpHolder.CreateTP(
-                tpPrice,
-                PriceMeasurement.Absolute,
-                double.NaN, double.NaN
-            );
+            // 5) capture live account
+            var acct = this.CurrentChart.Account;
 
-            // 5) pick order type / price or trigger
-            double price = 0;
-            double triggerPrice = 0;
-            string orderTypeId;
+            // 6) decide Stop vs Limit
+            double marketPrice = isLong ? Symbol.Ask : Symbol.Bid;
+            bool isStop = !MarketOrderMode &&
+                          ((isLong && marketPrice < entry) ||
+                           (!isLong && marketPrice > entry));
 
-            if (MarketOrderMode)
+            // 7) place the order (both branches use OFFSET SL & TP)
+            Task.Run(() =>
             {
-                orderTypeId = OrderType.Market.ToString();
-            }
-            else
-            {
-                double marketPrice = isLong ? Symbol.Ask : Symbol.Bid;
-                if ((isLong && marketPrice < entryPrice) ||
-                    (!isLong && marketPrice > entryPrice))
+                var req = new PlaceOrderRequestParameters
                 {
-                    orderTypeId = OrderType.Stop.ToString();
-                    triggerPrice = entryPrice;
-                }
-                else
-                {
-                    orderTypeId = OrderType.Limit.ToString();
-                    price = entryPrice;
-                }
-            }
+                    Symbol = this.Symbol,
+                    Account = acct,
+                    OrderTypeId = isStop
+                                   ? OrderType.Stop.ToString()
+                                   : OrderType.Limit.ToString(),
+                    Side = side,
 
-            // 6) construct & send using the *live* account
-            var req = new PlaceOrderRequestParameters
-            {
-                Symbol = this.Symbol,
-                Account = this.CurrentChart.Account,    // ← live account here
-                OrderTypeId = orderTypeId,
-                Side = side,
-                Quantity = qty,
-                Price = price,
-                TriggerPrice = triggerPrice,
-                StopLoss = slHolder,
-                TakeProfit = tpHolder,
-                TimeInForce = TimeInForce.GTC
-            };
+                    // Limit uses Price, Stop uses TriggerPrice
+                    Price = isStop ? 0 : entry,
+                    TriggerPrice = isStop ? entry : 0,
 
-            // debug log to confirm which account
-            Core.Instance.Loggers.Log(
-              $"[R:R] Placing {orderTypeId} via PSC on account “{req.Account?.Name}”",
-              LoggingLevel.Trading,
-              null
-            );
+                    Quantity = qty,
+                    StopLoss = SlTpHolder.CreateSL(
+                                       slTicks,
+                                       PriceMeasurement.Offset,
+                                       false, double.NaN, double.NaN
+                                   ),
+                    TakeProfit = SlTpHolder.CreateTP(
+                                       tpTicks,
+                                       PriceMeasurement.Offset,
+                                       double.NaN, double.NaN
+                                   ),
+                    TimeInForce = TimeInForce.GTC
+                };
 
-            Core.Instance.PlaceOrder(req);
+                Core.Instance.PlaceOrder(req);
+
+                // clear UI state
+                ResetAllButtons();
+                ManualReset();
+            });
         }
 
 
