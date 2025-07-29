@@ -1293,6 +1293,10 @@ X + panelW - gutter, BY + breakBtnH,
 
             // clear the stored operation result
             tradingOperationResult = null;
+
+            // reset BE display
+            lastEntryPrice = 0;
+            beVal = 0;
         }
 
 
@@ -1617,7 +1621,8 @@ X + panelW - gutter, BY + breakBtnH,
             // flatten all
             if (btnAll.Contains(x, y))
             {
-                Core.AdvancedTradingOperations.Flatten();
+                Core.AdvancedTradingOperations.Flatten();             
+                ManualReset();
                 return;
             }
 
