@@ -39,7 +39,7 @@ namespace OrderPlacingTool
         [InputParameter("Market Order Mode", 4)]
         public bool MarketOrderMode { get; set; } = false;
 
-        [InputParameter("Auto Adjust SL/TP on Fill", 5)]
+        
         public bool AutoAdjustOnFill { get; set; } = true;
 
         [InputParameter("UI Scale", 6, 0.5, 2, 0.1)]
@@ -156,7 +156,7 @@ namespace OrderPlacingTool
             Name = "Trade Manager";
             Description = "In-chart Trade Manager panel";
             SeparateWindow = false;
-            AddLineSeries("dummy", Color.Transparent, 1, LineStyle.Solid);
+            //AddLineSeries("dummy", Color.Transparent, 1, LineStyle.Solid);
             BuildBrushesAndPens();
         }
 
