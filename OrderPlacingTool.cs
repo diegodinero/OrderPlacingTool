@@ -1625,6 +1625,17 @@ X + panelW - gutter, BY + breakBtnH,
                 return;
             }
 
+            if (beBtn.Contains(x, y))
+            {
+                // grab every open position for this account & symbol
+                foreach (var pos in Core.Instance.Positions)
+                {
+                    if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol)
+                        Core.Instance.AdvancedTradingOperations.BreakEven(pos);
+                }
+                return;
+            }
+
             // only winners
             if (btnProfit.Contains(x, y))
             {
