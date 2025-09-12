@@ -51,8 +51,13 @@ namespace OrderPlacingTool
         "Ticks",       "Ticks",
         "Profit/Loss", "Profit/Loss"
         })]
+
+
         public string BEValueMode { get; set; } = "Ticks";
         public bool LockButtons { get; set; } = false;
+
+        [InputParameter("Transparent Background", 8)]
+        public bool TransparentBackground { get; set; } = true;
 
 
         //── LAYOUT CONSTANTS ─────────────────────────────────────────────────────────
@@ -116,7 +121,6 @@ namespace OrderPlacingTool
         Pen sellPen, buyPen, bePen, partPen, smallPen;
 
         Button sellBtn, buyBtn;
-        Button[] lotRadios;
         Rectangle cashBox;
         private Rectangle rrBtnRect;
         private Rectangle lockRect;
@@ -124,6 +128,8 @@ namespace OrderPlacingTool
         Button btnAll, btnProfit, btnLoss, btnStop;
         Rectangle labelCloseTrades, labelCloseOrders;
         Brush textBoxBack;
+
+        Rectangle lotBox;
 
         int quantity = 100;
         double pipL = 2936.0, pipR = 2795.0;
@@ -153,7 +159,7 @@ namespace OrderPlacingTool
         //──────────────────────────────────────────────────────────────────────────────
         public OrderPlacingTool()
         {
-            Name = "Trade Manager";
+            Name = "Trade Manager Slim";
             Description = "In-chart Trade Manager panel";
             SeparateWindow = false;
             //AddLineSeries("dummy", Color.Transparent, 1, LineStyle.Solid);
@@ -357,61 +363,43 @@ namespace OrderPlacingTool
             int rowHeight = row3H + gutter;
             int lotCount = 4;  // we have 4 radio buttons
 
-            lotRadios = new[]
-            {
-    new Button("None",
-        radioX, startLotY + 0*rowHeight,
-        radioX + radioSize, startLotY + 0*rowHeight + radioSize,
-        smallBack, smallPen, smallFont, textBrush,
-        circle: true),
+            // ── COMPACT LOT ROW (Lot Calc. | Amount | USD | R:R) ─────────────────────
+            int compactLotY = Y + headerH + row1H + row2H + gutter;
 
-    new Button("Cash Amount",
-        radioX, startLotY + 1*rowHeight,
-        radioX + radioSize, startLotY + 1*rowHeight + radioSize,
-        smallBack, smallPen, smallFont, textBrush,
-        circle: true),
-    new Button(
-    "Risk Balance",
-    radioX,
-    startLotY + 2 * rowHeight,
-    radioX + radioSize,
-    startLotY + 2 * rowHeight + radioSize,
-    smallBack, smallPen, smallFont, textBrush,
-    circle: true
-),
-new Button(
-    "Risk Equity",
-    radioX,
-    startLotY + 3 * rowHeight,
-    radioX + radioSize,
-    startLotY + 3 * rowHeight + radioSize,
-    smallBack, smallPen, smallFont, textBrush,
-    circle: true
-)
+            // Amount (Risk in USD) box to the right (fixed width)
+            const int amountBoxW = 90;
+            const int amountBoxH = row3H - 8;
 
-};
-            // default to the “Cash Amount” radio being selected:
-            lotRadios[(int)LotMode.Cash].IsChecked = true;
+            // USD pill to the right of the amount box
+            const int usdW = 44;
+            const int usdH = amountBoxH;
 
-            int usdPadding = 2;
-            var usdSize = new Size(40, cashBox.Height);
-            var usdRect = new Rectangle(
-                cashBox.Right - 4,
-                cashBox.Y - usdPadding / 2,
-                usdSize.Width + usdPadding,
-                cashBox.Height
+            // R:R button at the far right
+            const int rrW = 44;
+            const int rrH = amountBoxH;
+
+            // Layout from right → left
+            int rrX = X + panelW - gutter - rrW;
+            int usdX = rrX - gutter - usdW;
+            int amountX = usdX - gutter - amountBoxW;
+
+            // NEW: a small box to show Lot Calc (qty), left of the amount box
+            const int lotBoxW = 70; // tweak width as you like
+            lotBox = new Rectangle(
+                amountX - gutter - lotBoxW,
+                compactLotY + 4,
+                lotBoxW,
+                amountBoxH
             );
 
-            // then compute rrBtnRect here:
-            int rrW = 40, rrH = 20;
-            // anchor to top of USD, then pull down slightly
-            const int rrPullDown = 8;
-            rrBtnRect = new Rectangle(
-                usdRect.X,
-                usdRect.Y - rrH + rrPullDown,
-                rrW,
-                rrH
-            );
+            // Risk (USD) amount box
+            cashBox = new Rectangle(amountX, compactLotY + 4, amountBoxW, amountBoxH);
+
+            // USD pill
+            var usdRect = new Rectangle(usdX, compactLotY + 4, usdW, usdH);
+
+            // keep for drawing (we’ll rebuild when painting)
+            rrBtnRect = new Rectangle(rrX, compactLotY + 4, rrW, rrH);
 
             // width of the text‐box
             //const int cashBoxWidth = 80;
@@ -719,24 +707,30 @@ X + panelW - gutter, BY + breakBtnH,
                 path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
                 path.CloseAllFigures();
 
-                using (var br = new SolidBrush(panelBack))
-                    g.FillPath(br, path);
+                if (!TransparentBackground)
+                {
+                    using (var br = new SolidBrush(panelBack))
+                        g.FillPath(br, path);
+                }
                 g.DrawPath(new Pen(borderCol), path);
             }
-            // 2) Header bar
+            // 2) Header bar (transparent option)
             var hdr = new Rectangle(X, Y, panelW, headerH);
-            using (var br = new SolidBrush(headerBack))
-                g.FillRectangle(br, hdr);
+            if (!TransparentBackground)
+            {
+                using (var br = new SolidBrush(headerBack))
+                    g.FillRectangle(br, hdr);
+            }
             g.DrawString("Trade Manager", titleFont, textBrush,
                          X + panelW / 2, Y + headerH / 2, CenterFormat);
 
 
             //DrawPadlockIcon(
-    //args.Graphics,
-    //lockRect.X, lockRect.Y,
-    //lockRect.Width, lockRect.Height,
-    //locked: LockButtons
-//);
+            //args.Graphics,
+            //lockRect.X, lockRect.Y,
+            //lockRect.Width, lockRect.Height,
+            //locked: LockButtons
+            //);
 
             var img = LockButtons ? _lockClosed : _lockOpen;
             args.Graphics.DrawImage(img, lockRect.X, lockRect.Y, lockRect.Width, lockRect.Height);
@@ -840,16 +834,14 @@ X + panelW - gutter, BY + breakBtnH,
                          p2.Right - (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
 
 
-            // 5) Row3: Lot-Calc + Cash
+            // ── LOT CALC COMPACT ROW ──────────────────────────────────────────────────
+            int compactLotY = Y + headerH + row1H + row2H + gutter;
 
-            int startLotY = Y + headerH + row1H + row2H + gutter;
-
-            // 1) Calculate the bottom of the Pips bar:
-            int pipBarBottom = Y + headerH + row1H + row2H + 20;   // ← +4px
-            float lotLabelY = pipBarBottom + gutter;
-
+            /// Left-aligned "Lots" label, vertically centered on the compact row
+            float lotLabelY = cashBox.Y + cashBox.Height / 2f;
+            string lotLabel = "Lots";
             g.DrawString(
-                "Lot Calc.",
+                lotLabel,
                 mainFont,
                 textBrush,
                 X + gutter,
@@ -857,149 +849,103 @@ X + panelW - gutter, BY + breakBtnH,
                 LeftFormat
             );
 
-            // 3) “Quantity” from PSC sizing
-            //    compute SL ticks based on your PSC-drawn entry & stop points:
+            // Measure the label and place qty closer to it
+            SizeF lotLabelSize = g.MeasureString(lotLabel, mainFont);
+            int lotQtyX = (int)(X + gutter + lotLabelSize.Width + Math.Max(4, gutter / 2)); // tighter gap
+
+            // Compute qty (unchanged)
             var psc = GetPSCPosition("Long Position") ?? GetPSCPosition("Short Position");
             double slTicks = 0;
             if (psc != null)
             {
                 double entry = GetDrawingPrice(psc, "MiddlePoint");
-                double sl = GetDrawingPrice(psc, entry == GetDrawingPrice(psc, "BottomPoint")
-                ? "TopPoint"
-                : "BottomPoint");
+                double sl = (Math.Abs(entry - GetDrawingPrice(psc, "BottomPoint")) <
+                             Math.Abs(entry - GetDrawingPrice(psc, "TopPoint")))
+                            ? GetDrawingPrice(psc, "BottomPoint")
+                            : GetDrawingPrice(psc, "TopPoint");
                 slTicks = Math.Abs((entry - sl) / Symbol.TickSize);
             }
             double qtyValue = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
             string qtyDisplay = qtyValue.ToString("F2");
-            using (var pctBrush = new SolidBrush(buyCol.Color1))
-            {
-                var lmt = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
-                g.DrawString(
+
+            // Draw qty as plain text (no rounded box), snug to the label
+            float lotRowCenterY = cashBox.Y + cashBox.Height / 2f;
+            g.DrawString(
                 qtyDisplay,
                 smallFont,
-                pctBrush,
-                X + panelW - gutter,
-                lotLabelY,
-                lmt
-                );
-            }
-
-            // ── draw the rounded box behind "USD" ──
-            var usdPadding = 2;
-            var usdSize = new Size(40, cashBox.Height);
-            var usdRect = new Rectangle(
-                cashBox.Right - 4,               // shift left by 4px if you like
-                cashBox.Y - usdPadding / 2,
-                usdSize.Width + usdPadding,
-                cashBox.Height
+                textBrush,
+                lotQtyX,
+                lotRowCenterY,
+                LeftFormat
             );
 
-            using (var path = RoundedRect(new RectangleF(usdRect.X, usdRect.Y, usdRect.Width, usdRect.Height), btnRadius))
-            using (var br = new SolidBrush(textBoxBackCol))
-            {
-                g.FillPath(br, path);
-                g.DrawPath(Pens.Gray, path);
-            }
 
-            // ── draw the USD text centered ──
-            using (var usdBrush = new SolidBrush(pipsAndCurrency))
-            {
-                g.DrawString(
-                    "USD",
-                    smallFont,
-                    usdBrush,
-                    usdRect.X + usdRect.Width / 2f,
-                    usdRect.Y + usdRect.Height / 2f,
-                    CenterFormat
-                );
-            }
+            // Optionally a tiny “Lots” tag above or inside-left (comment out if you prefer it cleaner)
+            // using (var lotsBrush = new SolidBrush(pipsAndCurrency))
+            //     g.DrawString("Lots", smallFont, lotsBrush, lotBox.X + 6, lotBox.Y + lotBox.Height/2f, LeftFormat);
 
-
-            // draw the R:R button background & border
-            using (var path = RoundedRect(rrBtnRect, btnRadius))
-            using (var br = new SolidBrush(textBoxBackCol))
-            {
-                g.FillPath(br, path);
-                g.DrawPath(Pens.Gray, path);
-            }
-
-            // now draw each character in its color
-            var font = smallFont;
-            var fmt = CenterFormat;
-            // measure widths
-            float wR = g.MeasureString("R", font).Width;
-            float wC = g.MeasureString(":", font).Width;
-            // starting X so that "R:R" is centered in rrBtnRect
-            float totalW = wR + wC + wR;
-            float startX = rrBtnRect.X + (rrBtnRect.Width - totalW) / 2;
-            float centerY = rrBtnRect.Y + rrBtnRect.Height / 2;
-
-            using (var path = RoundedRect(rrBtnRect, btnRadius))
-            using (var br = new SolidBrush(textBoxBackCol))
-            {
-                g.FillPath(br, path);
-                g.DrawPath(Pens.Gray, path);
-            }
-
-            // left R (red)
-            g.DrawString("R", font, Brushes.Red,
-                         new PointF(startX + wR / 2, centerY), fmt);
-            // colon (white)
-            g.DrawString(":", font, Brushes.White,
-                         new PointF(startX + wR + wC / 2, centerY), fmt);
-            // right R (green)
-            g.DrawString("R", font, Brushes.Green,
-                         new PointF(startX + wR + wC + wR / 2, centerY), fmt);
-
-            
-
-
-            // 4) RADIO BUTTONS (one gutter below the label)
-            // 4) RADIO BUTTONS (one gutter below the label)
-            int radioStartY = (int)(lotLabelY + smallFont.Height + gutter / 32);
-            for (int i = 0; i < lotRadios.Length; i++)
-            {
-                var b = lotRadios[i];
-                b.Y1 = radioStartY + i * (radioSize + gutter);
-                b.Y2 = b.Y1 + radioSize;
-                b.DrawCircle(g, btnRadius);
-                g.DrawString(
-                  b.Text,
-                  smallFont,
-                  textBrush,
-                  b.X1 + radioSize + 4,
-                  b.Y1 + radioSize / 2,
-                  LeftFormat
-                );
-            }
-
-            // 5) CASH BOX (positioned alongside the “Cash Amount” radio)
-            cashBox.Y = radioStartY + 1 * (radioSize + gutter) + 4;
-            var cashRectF = new RectangleF(cashBox.X, cashBox.Y, cashBox.Width, cashBox.Height);
-            using (var path = RoundedRect(cashRectF, btnRadius))
+            // Draw the Risk (USD) amount box
+            var amountRectF = new RectangleF(cashBox.X, cashBox.Y, cashBox.Width, cashBox.Height);
+            using (var path = RoundedRect(amountRectF, btnRadius))
             {
                 using (var br = new SolidBrush(textBoxBackCol))
                     g.FillPath(br, path);
                 g.DrawPath(Pens.Gray, path);
             }
+            // Show risk in USD (box value). cashAmt is kept in sync with RiskAmount in OnUpdate.
             g.DrawString(
               cashAmt.ToString("F2"),
               smallFont,
               textBrush,
-              cashBox.X + cashBox.Width / 2,
-              cashBox.Y + cashBox.Height / 2,
+              cashBox.X + cashBox.Width / 2f,
+              cashBox.Y + cashBox.Height / 2f,
               CenterFormat
             );
 
-            // ── DRAW ONE DIVIDER UNDER THE RADIOS ──
-            int radiosBottomY = radioStartY + lotRadios.Length * (radioSize + gutter);
-            int dividerY = radiosBottomY + (gutter / 2);
-            using (var divPen = new Pen(Color.Gray, 1))
-                g.DrawLine(
-                  divPen,
-                  X + gutter, dividerY,
-                  X + panelW - gutter, dividerY
-                );
+            // USD pill (right of amount)
+            var usdRect = new Rectangle(
+                cashBox.Right + gutter,
+                cashBox.Y,
+                44,
+                cashBox.Height
+            );
+            using (var path = RoundedRect(new RectangleF(usdRect.X, usdRect.Y, usdRect.Width, usdRect.Height), btnRadius))
+            {
+                using (var br = new SolidBrush(textBoxBackCol))
+                    g.FillPath(br, path);
+                g.DrawPath(Pens.Gray, path);
+            }
+            using (var usdBrush = new SolidBrush(pipsAndCurrency))
+            {
+                g.DrawString("USD", smallFont, usdBrush,
+                    usdRect.X + usdRect.Width / 2f,
+                    usdRect.Y + usdRect.Height / 2f,
+                    CenterFormat);
+            }
+
+
+            // R:R button (far right)
+            using (var path = RoundedRect(rrBtnRect, btnRadius))
+            using (var br = new SolidBrush(textBoxBackCol))
+            {
+                g.FillPath(br, path);
+                g.DrawPath(Pens.Gray, path);
+            }
+
+            // Draw “R:R” with colors
+            var font = smallFont;
+            var fmt = CenterFormat;
+            float wR = g.MeasureString("R", font).Width;
+            float wC = g.MeasureString(":", font).Width;
+            float totalW = wR + wC + wR;
+            float startX = rrBtnRect.X + (rrBtnRect.Width - totalW) / 2f;
+            float centerY = rrBtnRect.Y + rrBtnRect.Height / 2f;
+
+            g.DrawString("R", font, Brushes.Red, new PointF(startX + wR / 2, centerY), fmt);
+            g.DrawString(":", font, Brushes.White, new PointF(startX + wR + wC / 2, centerY), fmt);
+            g.DrawString("R", font, Brushes.Green, new PointF(startX + wR + wC + wR / 2, centerY), fmt);
+
+
 
             // ── PUSH EVERYTHING BELOW THIS LINE DOWN BY ONE GUTTER ──
 
@@ -1009,22 +955,20 @@ X + panelW - gutter, BY + breakBtnH,
             var saved = g.Save();
             g.TranslateTransform(0, sectionOffset);
 
-            int BY = dividerY + sectionOffset;
-            int breakLabelY = BY - mainFont.Height + gutter + 5;
-            g.DrawString(
-              "Break Even & Partial Close",
-              mainFont,
-              textBrush,
-              X + gutter,
-              breakLabelY,
-              LeftFormat
-            );
+            // Divider above the BE/Partial buttons
+            int dividerY_BE = cashBox.Bottom + gutter; // one gutter below the risk row
+            using (var divPen = new Pen(Color.Gray, 1))
+                g.DrawLine(divPen, X + gutter, dividerY_BE, X + panelW - gutter, dividerY_BE);
+
+            // Place buttons one gutter below the divider
+            int BY = dividerY_BE + gutter;
 
             const int breakBtnH = 30;
             beBtn.Y1 = BY; beBtn.Y2 = BY + breakBtnH;
             partBtn.Y1 = BY; partBtn.Y2 = BY + breakBtnH;
             beBtn.Draw(g, btnRadius);
             partBtn.Draw(g, btnRadius);
+
 
 
             // 7) MIDDLE BE-VALUE BOX (size it to exactly fill the gap)
