@@ -59,9 +59,16 @@ namespace OrderPlacingTool
         [InputParameter("Transparent Background", 8)]
         public bool TransparentBackground { get; set; } = true;
 
+        [InputParameter("Panel Width", 9, 240, 420, 10)]
+        public int PanelWidth { get; set; } = 280;   // default smaller than 320
+
+        // Internal live width (we clamp inside LayoutUI so you can hot-change safely)
+        private int panelW = 280;
+
+
 
         //── LAYOUT CONSTANTS ─────────────────────────────────────────────────────────
-        const int panelW = 320;
+        //const int panelW = 320;
         const int headerH = 36;
         const int row1H = 37;
         const int row2H = 36;
@@ -295,10 +302,14 @@ namespace OrderPlacingTool
         /// </summary>
         void LayoutUI()
         {
+            // clamp the live width and copy from the setting
+            panelW = Math.Max(240, Math.Min(PanelWidth, 420));
 
             int X = XShift, Y = YShift;
 
-            const int headerBtnW = 120;  // <-- desired width
+            // header buttons scale with panel width
+            int headerBtnW = Math.Max(90, (panelW - (gutter * 2) - 140) / 2);
+            // 140 is a reserve for center/labels/spacing; tweak if needed
             const int breakBtnW = 100;
             const int breakBtnH = 30;
 
@@ -366,40 +377,48 @@ namespace OrderPlacingTool
             // ── COMPACT LOT ROW (Lot Calc. | Amount | USD | R:R) ─────────────────────
             int compactLotY = Y + headerH + row1H + row2H + gutter;
 
-            // Amount (Risk in USD) box to the right (fixed width)
-            const int amountBoxW = 90;
-            const int amountBoxH = row3H - 8;
+            // Size pieces proportionally, with safe minimums
+            int rrW = Math.Max(40, (int)(panelW * 0.14));
+            int usdW = Math.Max(40, (int)(panelW * 0.14));
+            int amountBoxW = Math.Max(80, (int)(panelW * 0.26));
+            int lotBoxW = Math.Max(56, (int)(panelW * 0.20));
 
-            // USD pill to the right of the amount box
-            const int usdW = 44;
-            const int usdH = amountBoxH;
+            // If the sum is too wide, shave proportionally
+            int rowBudget = panelW - (gutter * 5);
+            int sum = rrW + usdW + amountBoxW + lotBoxW;
+            if (sum > rowBudget)
+            {
+                // scale down each component proportionally but not below its min
+                double scale = (double)rowBudget / sum;
 
-            // R:R button at the far right
-            const int rrW = 44;
-            const int rrH = amountBoxH;
+                int rrMin = 40, usdMin = 40, amtMin = 80, lotMin = 56;
+                rrW = Math.Max(rrMin, (int)Math.Floor(rrW * scale));
+                usdW = Math.Max(usdMin, (int)Math.Floor(usdW * scale));
+                amountBoxW = Math.Max(amtMin, (int)Math.Floor(amountBoxW * scale));
+                lotBoxW = Math.Max(lotMin, (int)Math.Floor(lotBoxW * scale));
+
+                // If still too big due to mins, squeeze from the largest first
+                while ((rrW + usdW + amountBoxW + lotBoxW) > rowBudget)
+                {
+                    if (amountBoxW > amtMin) amountBoxW--;
+                    else if (lotBoxW > lotMin) lotBoxW--;
+                    else if (rrW > rrMin) rrW--;
+                    else if (usdW > usdMin) usdW--;
+                    else break;
+                }
+            }
 
             // Layout from right → left
             int rrX = X + panelW - gutter - rrW;
             int usdX = rrX - gutter - usdW;
             int amountX = usdX - gutter - amountBoxW;
+            int lotX = amountX - gutter - lotBoxW;
 
-            // NEW: a small box to show Lot Calc (qty), left of the amount box
-            const int lotBoxW = 70; // tweak width as you like
-            lotBox = new Rectangle(
-                amountX - gutter - lotBoxW,
-                compactLotY + 4,
-                lotBoxW,
-                amountBoxH
-            );
+            lotBox = new Rectangle(lotX, compactLotY + 4, lotBoxW, row3H - 8);
+            cashBox = new Rectangle(amountX, compactLotY + 4, amountBoxW, row3H - 8);
+            var usdRect = new Rectangle(usdX, compactLotY + 4, usdW, row3H - 8);
+            rrBtnRect = new Rectangle(rrX, compactLotY + 4, rrW, row3H - 8);
 
-            // Risk (USD) amount box
-            cashBox = new Rectangle(amountX, compactLotY + 4, amountBoxW, amountBoxH);
-
-            // USD pill
-            var usdRect = new Rectangle(usdX, compactLotY + 4, usdW, usdH);
-
-            // keep for drawing (we’ll rebuild when painting)
-            rrBtnRect = new Rectangle(rrX, compactLotY + 4, rrW, rrH);
 
             // width of the text‐box
             //const int cashBoxWidth = 80;
