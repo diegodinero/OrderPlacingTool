@@ -214,7 +214,8 @@ namespace OrderPlacingTool
             //base.OnSettingsUpdated();
             BuildBrushesAndPens();
             LayoutUI();
-                      
+            LockButtons = true;
+
         }
 
         private void OnOrderFilled(OrderHistory hist)
