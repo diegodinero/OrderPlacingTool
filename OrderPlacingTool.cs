@@ -776,9 +776,14 @@ X + panelW - gutter, BY + breakBtnH,
             SizeF titleSize = g.MeasureString(titleText, titleFont);
             SizeF symbolSize = g.MeasureString(symbolText, smallFont);
             
-            // Calculate positions for two-line layout
-            float titleY = Y + (headerH / 2) - (titleSize.Height / 2) - 2;
-            float symbolY = Y + (headerH / 2) + (symbolSize.Height / 2) + 2;
+            // Calculate total height and position tightly together
+            float totalTextHeight = titleSize.Height + symbolSize.Height;
+            float startY = Y + (headerH - totalTextHeight) / 2;
+            
+            // Position title at top of text block
+            float titleY = startY + titleSize.Height / 2;
+            // Position symbol immediately below title with minimal gap
+            float symbolY = startY + titleSize.Height + symbolSize.Height / 2;
             
             g.DrawString(titleText, titleFont, textBrush,
                          X + panelW / 2, titleY, CenterFormat);
