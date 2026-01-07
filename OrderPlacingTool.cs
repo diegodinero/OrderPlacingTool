@@ -163,6 +163,10 @@ namespace OrderPlacingTool
 
         // 2) store the result of the last PlaceOrder call
         private TradingOperationResult tradingOperationResult = null;
+        
+        // Timer for periodic position check (every 500ms)
+        private DateTime lastPositionCheck = DateTime.MinValue;
+        private readonly TimeSpan positionCheckInterval = TimeSpan.FromMilliseconds(500);
         //──────────────────────────────────────────────────────────────────────────────
         public OrderPlacingTool()
         {
@@ -594,6 +598,28 @@ X + panelW - gutter, BY + breakBtnH,
             {
                 beVal = 0;
             }
+            
+            // Periodic position check (every 500ms) to reset BE value if position is closed
+            if (DateTime.Now - lastPositionCheck >= positionCheckInterval)
+            {
+                lastPositionCheck = DateTime.Now;
+                
+                // Check if we have a tracked entry price but no actual position
+                if (lastEntryPrice != 0)
+                {
+                    // Look for any position for this symbol and account
+                    var existingPosition = Core.Instance.Positions.FirstOrDefault(p =>
+                        p.Account == CurrentChart.Account &&
+                        p.Symbol == this.Symbol);
+                    
+                    // If no position exists, reset the BE tracking
+                    if (existingPosition == null)
+                    {
+                        lastEntryPrice = 0;
+                        beVal = 0;
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -741,8 +767,33 @@ X + panelW - gutter, BY + breakBtnH,
                 using (var br = new SolidBrush(headerBack))
                     g.FillRectangle(br, hdr);
             }
-            g.DrawString("Trade Manager", titleFont, textBrush,
-                         X + panelW / 2, Y + headerH / 2, CenterFormat);
+            
+            // Draw "Trade Manager" title and symbol name
+            string titleText = "Trade Manager";
+            string symbolText = Symbol?.Name ?? "";
+            
+            // Measure text to position them vertically
+            SizeF titleSize = g.MeasureString(titleText, titleFont);
+            SizeF symbolSize = g.MeasureString(symbolText, smallFont);
+            
+            // Calculate total height and position tightly together
+            float totalTextHeight = titleSize.Height + symbolSize.Height;
+            float startY = Y + (headerH - totalTextHeight) / 2;
+            
+            // Position title at top of text block
+            float titleY = startY + titleSize.Height / 2;
+            // Position symbol immediately below title with minimal gap
+            float symbolY = startY + titleSize.Height + symbolSize.Height / 2;
+            
+            g.DrawString(titleText, titleFont, textBrush,
+                         X + panelW / 2, titleY, CenterFormat);
+            
+            // Draw symbol name in smaller font with accent color
+            using (var symbolBrush = new SolidBrush(pipsAndCurrency))
+            {
+                g.DrawString(symbolText, smallFont, symbolBrush,
+                             X + panelW / 2, symbolY, CenterFormat);
+            }
 
 
             //DrawPadlockIcon(
