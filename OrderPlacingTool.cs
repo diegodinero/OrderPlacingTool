@@ -104,6 +104,7 @@ namespace OrderPlacingTool
         readonly Font titleFont = new Font("Segoe UI", 14, FontStyle.Bold);
         readonly Font mainFont = new Font("Segoe UI", 12, FontStyle.Bold);
         readonly Font smallFont = new Font("Segoe UI", 12, FontStyle.Regular);
+        readonly Font extraSmallFont = new Font("Segoe UI", 10, FontStyle.Regular);
         readonly Brush textBrush = Brushes.White;
 
         readonly Color textBoxBackCol = Color.FromArgb(41, 50, 60);
@@ -774,7 +775,7 @@ X + panelW - gutter, BY + breakBtnH,
             
             // Measure text to position them vertically
             SizeF titleSize = g.MeasureString(titleText, titleFont);
-            SizeF symbolSize = g.MeasureString(symbolText, smallFont);
+            SizeF symbolSize = g.MeasureString(symbolText, extraSmallFont);
             
             // Calculate total height and position tightly together
             float totalTextHeight = titleSize.Height + symbolSize.Height;
@@ -783,16 +784,16 @@ X + panelW - gutter, BY + breakBtnH,
             // Position title at top of text block
             float titleY = startY + titleSize.Height / 2;
             // Position symbol immediately below title with minimal gap
-            float symbolY = startY + titleSize.Height + symbolSize.Height / 2;
-            
+            float symbolY = Y + (headerH / 2) + (symbolSize.Height / 2) - 4;
+
             g.DrawString(titleText, titleFont, textBrush,
                          X + panelW / 2, titleY, CenterFormat);
             
             // Draw symbol name in smaller font with accent color
             using (var symbolBrush = new SolidBrush(pipsAndCurrency))
             {
-                g.DrawString(symbolText, smallFont, symbolBrush,
-                             X + panelW / 2, symbolY, CenterFormat);
+                //g.DrawString(symbolText, smallFont, symbolBrush,
+                             //X + panelW / 2, symbolY, CenterFormat);
             }
 
 
