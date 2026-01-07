@@ -605,20 +605,27 @@ X + panelW - gutter, BY + breakBtnH,
             {
                 lastPositionCheck = DateTime.Now;
                 
+                // Look for any position for this symbol and account
+                var existingPosition = Core.Instance.Positions.FirstOrDefault(p =>
+                    p.Account == CurrentChart.Account &&
+                    p.Symbol == this.Symbol);
+                
                 // Check if we have a tracked entry price but no actual position
                 if (lastEntryPrice != 0)
                 {
-                    // Look for any position for this symbol and account
-                    var existingPosition = Core.Instance.Positions.FirstOrDefault(p =>
-                        p.Account == CurrentChart.Account &&
-                        p.Symbol == this.Symbol);
-                    
                     // If no position exists, reset the BE tracking
                     if (existingPosition == null)
                     {
                         lastEntryPrice = 0;
                         beVal = 0;
                     }
+                }
+                // Check if we have a position but aren't tracking it (opened externally)
+                else if (existingPosition != null)
+                {
+                    // Initialize tracking for externally created position
+                    lastEntryPrice = existingPosition.OpenPrice;
+                    lastSide = existingPosition.Side;
                 }
             }
         }
