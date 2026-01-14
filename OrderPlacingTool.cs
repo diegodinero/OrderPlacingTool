@@ -1694,12 +1694,11 @@ protected override void OnUpdate(UpdateArgs args)
             if (beBtn.Contains(x, y))
             {
                 // Optimized: filter positions once before iterating
-                var relevantPositions = Core.Instance.Positions
-                    .Where(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol)
-                    .ToList();
-                
-                foreach (var pos in relevantPositions)
+                foreach (var pos in Core.Instance.Positions
+                    .Where(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol))
+                {
                     Core.Instance.AdvancedTradingOperations.BreakEven(pos);
+                }
                 
                 return;
             }
@@ -1708,12 +1707,11 @@ protected override void OnUpdate(UpdateArgs args)
             if (btnProfit.Contains(x, y))
             {
                 // Optimized: filter and process in one pass
-                var profitablePositions = Core.Instance.Positions
-                    .Where(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol && p.GrossPnL.Value > 0)
-                    .ToList();
-                
-                foreach (var pos in profitablePositions)
+                foreach (var pos in Core.Instance.Positions
+                    .Where(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol && p.GrossPnL.Value > 0))
+                {
                     Core.AdvancedTradingOperations.Flatten(pos.Id);
+                }
                 
                 return;
             }
@@ -1722,12 +1720,11 @@ protected override void OnUpdate(UpdateArgs args)
             if (btnLoss.Contains(x, y))
             {
                 // Optimized: filter and process in one pass
-                var losingPositions = Core.Instance.Positions
-                    .Where(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol && p.GrossPnL.Value < 0)
-                    .ToList();
-                
-                foreach (var pos in losingPositions)
+                foreach (var pos in Core.Instance.Positions
+                    .Where(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol && p.GrossPnL.Value < 0))
+                {
                     Core.AdvancedTradingOperations.Flatten(pos.Id);
+                }
                 
                 return;
             }
