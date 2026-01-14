@@ -571,7 +571,7 @@ X + panelW - gutter, BY + breakBtnH,
             return sd != null ? (double)sd.Value : 0.0;
         }
 
-protected override void OnUpdate(UpdateArgs args) 
+        protected override void OnUpdate(UpdateArgs args) 
         {
             // Always keep our "cashAmt" in sync with the user-set Risk Amount
             cashAmt = RiskAmount;
@@ -1660,6 +1660,7 @@ protected override void OnUpdate(UpdateArgs args)
             if (partBtn.Contains(x, y))
             {
                 // Optimized: filter positions first, then iterate
+                // Note: ToList() is necessary here because we iterate AND call FirstOrDefault
                 var relevantPositions = Core.Instance.Positions
                     .Where(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol)
                     .ToList();
