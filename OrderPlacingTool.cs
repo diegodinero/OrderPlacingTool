@@ -168,6 +168,17 @@ namespace OrderPlacingTool
         // Timer for periodic position check (every 500ms)
         private DateTime lastPositionCheck = DateTime.MinValue;
         private readonly TimeSpan positionCheckInterval = TimeSpan.FromMilliseconds(500);
+        
+        // Cache for position state to reduce lookups
+        private Position _cachedPosition = null;
+        private DateTime _lastPositionCacheTime = DateTime.MinValue;
+        private readonly TimeSpan _positionCacheInterval = TimeSpan.FromMilliseconds(100);
+        
+        // Cache for drawing objects to reduce chart queries
+        private IDrawing _cachedLongPos = null;
+        private IDrawing _cachedShortPos = null;
+        private DateTime _lastDrawingCacheTime = DateTime.MinValue;
+        private readonly TimeSpan _drawingCacheInterval = TimeSpan.FromMilliseconds(200);
         //──────────────────────────────────────────────────────────────────────────────
         public OrderPlacingTool()
         {
@@ -222,6 +233,8 @@ namespace OrderPlacingTool
             {
                 lastEntryPrice = 0;
                 beVal = 0;
+                // Clear position cache when order is closed
+                _cachedPosition = null;
             }
         }
 
@@ -238,22 +251,22 @@ namespace OrderPlacingTool
 
         private void OnOrderFilled(OrderHistory hist)
         {
-            // only act if the user enabled auto-adjust, it’s our account/symbol, and it just filled
+            // only act if the user enabled auto-adjust, it's our account/symbol, and it just filled
             if (!AutoAdjustOnFill
                 || hist.Account != CurrentChart.Account
                 || hist.Symbol != this.Symbol
                 || hist.Status != OrderStatus.Filled)
                 return;
 
-            // find the newly‐filled position(s) and move SL→BE
-            foreach (var pos in Core.Instance.Positions)
+            // Optimized: find the specific position by ID instead of iterating all positions
+            var filledPosition = Core.Instance.Positions.FirstOrDefault(p => 
+                p.Id == hist.PositionId);
+            
+            if (filledPosition != null)
             {
-                if (pos.Account == CurrentChart.Account
-                 && pos.Symbol == this.Symbol
-                 && pos.Id == hist.PositionId)
-                {
-                    Core.Instance.AdvancedTradingOperations.AdjustSlTp(pos);
-                }
+                Core.Instance.AdvancedTradingOperations.AdjustSlTp(filledPosition);
+                // Update cache with the filled position
+                _cachedPosition = filledPosition;
             }
         }
 
@@ -529,6 +542,12 @@ X + panelW - gutter, BY + breakBtnH,
             CurrentChart.MouseClick -= CurrentChart_MouseClick;
             Core.Instance.OrdersHistoryAdded -= OnOrderClosed;
             Core.Instance.OrdersHistoryAdded -= OnOrderFilled;
+            
+            // Clear caches to free memory
+            _cachedPosition = null;
+            _cachedLongPos = null;
+            _cachedShortPos = null;
+            
             base.Dispose();
         }
 
@@ -554,37 +573,46 @@ X + panelW - gutter, BY + breakBtnH,
 
         protected override void OnUpdate(UpdateArgs args) 
         {
-            // Always keep our “cashAmt” in sync with the user-set Risk Amount
+            // Always keep our "cashAmt" in sync with the user-set Risk Amount
             cashAmt = RiskAmount;
-            // find the PSC drawing:
-            var longPos = CurrentChart.Drawings
-                        .GetAll(Symbol)
-                        .FirstOrDefault(d =>
-                            SettingItemExtensions
-                                .GetItemByName(((ICustomizable)d).Settings, "CustomName")
-                                ?.Value?.ToString() == "Long Position"
-                        );
-            var shortPos = CurrentChart.Drawings
-                        .GetAll(Symbol)
-                        .FirstOrDefault(d =>
-                            SettingItemExtensions
-                                .GetItemByName(((ICustomizable)d).Settings, "CustomName")
-                                ?.Value?.ToString() == "Short Position"
-                        );
-
-            if (longPos != null)
+            
+            // Cache drawing objects to reduce chart queries during high volatility
+            var now = DateTime.Now;
+            if (now - _lastDrawingCacheTime >= _drawingCacheInterval)
             {
-                pipR = GetDrawingPrice(longPos, "TopPoint");    // TP
-                pipL = GetDrawingPrice(longPos, "BottomPoint"); // SL
+                _lastDrawingCacheTime = now;
+                _cachedLongPos = CurrentChart.Drawings
+                            .GetAll(Symbol)
+                            .FirstOrDefault(d =>
+                                SettingItemExtensions
+                                    .GetItemByName(((ICustomizable)d).Settings, "CustomName")
+                                    ?.Value?.ToString() == "Long Position"
+                            );
+                _cachedShortPos = CurrentChart.Drawings
+                            .GetAll(Symbol)
+                            .FirstOrDefault(d =>
+                                SettingItemExtensions
+                                    .GetItemByName(((ICustomizable)d).Settings, "CustomName")
+                                    ?.Value?.ToString() == "Short Position"
+                            );
             }
-            else if (shortPos != null)
+            
+            // Use cached drawing objects
+            if (_cachedLongPos != null)
             {
-                pipR = GetDrawingPrice(shortPos, "BottomPoint");
-                pipL = GetDrawingPrice(shortPos, "TopPoint");
+                pipR = GetDrawingPrice(_cachedLongPos, "TopPoint");    // TP
+                pipL = GetDrawingPrice(_cachedLongPos, "BottomPoint"); // SL
             }
+            else if (_cachedShortPos != null)
+            {
+                pipR = GetDrawingPrice(_cachedShortPos, "BottomPoint");
+                pipL = GetDrawingPrice(_cachedShortPos, "TopPoint");
+            }
+            
+            // Only update BE calculation if we have a tracked position
             if (lastEntryPrice != 0)
             {
-                // choose the correct “current” price stream
+                // choose the correct "current" price stream
                 double current = lastSide == Side.Buy ? Symbol.Bid : Symbol.Ask;
                 // new: round to integer ticks
                 beVal = Math.Round(
@@ -601,31 +629,35 @@ X + panelW - gutter, BY + breakBtnH,
             }
             
             // Periodic position check (every 500ms) to reset BE value if position is closed
-            if (DateTime.Now - lastPositionCheck >= positionCheckInterval)
+            if (now - lastPositionCheck >= positionCheckInterval)
             {
-                lastPositionCheck = DateTime.Now;
+                lastPositionCheck = now;
                 
-                // Look for any position for this symbol and account
-                var existingPosition = Core.Instance.Positions.FirstOrDefault(p =>
-                    p.Account == CurrentChart.Account &&
-                    p.Symbol == this.Symbol);
+                // Use cached position to reduce lookup overhead
+                if (now - _lastPositionCacheTime >= _positionCacheInterval)
+                {
+                    _lastPositionCacheTime = now;
+                    _cachedPosition = Core.Instance.Positions.FirstOrDefault(p =>
+                        p.Account == CurrentChart.Account &&
+                        p.Symbol == this.Symbol);
+                }
                 
                 // Check if we have a tracked entry price but no actual position
                 if (lastEntryPrice != 0)
                 {
                     // If no position exists, reset the BE tracking
-                    if (existingPosition == null)
+                    if (_cachedPosition == null)
                     {
                         lastEntryPrice = 0;
                         beVal = 0;
                     }
                 }
                 // Check if we have a position but aren't tracking it (opened externally)
-                else if (existingPosition != null)
+                else if (_cachedPosition != null)
                 {
                     // Initialize tracking for externally created position
-                    lastEntryPrice = existingPosition.OpenPrice;
-                    lastSide = existingPosition.Side;
+                    lastEntryPrice = _cachedPosition.OpenPrice;
+                    lastSide = _cachedPosition.Side;
                 }
             }
         }
@@ -1316,6 +1348,11 @@ X + panelW - gutter, BY + breakBtnH,
 
             // clear the stored operation result
             tradingOperationResult = null;
+            
+            // Clear drawing cache to force refresh on next update
+            _cachedLongPos = null;
+            _cachedShortPos = null;
+            _lastDrawingCacheTime = DateTime.MinValue;
         }
 
 
@@ -1622,16 +1659,22 @@ X + panelW - gutter, BY + breakBtnH,
             // Adjust SL/TP on fill
             if (partBtn.Contains(x, y))
             {
-                foreach (var pos in Core.Instance.Positions)
-                    if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol)
-                        Core.Instance.AdvancedTradingOperations.AdjustSlTp(pos);
+                // Optimized: filter positions first, then iterate
+                // Note: ToList() is necessary here because we iterate AND call FirstOrDefault
+                var relevantPositions = Core.Instance.Positions
+                    .Where(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol)
+                    .ToList();
+                
+                foreach (var pos in relevantPositions)
+                    Core.Instance.AdvancedTradingOperations.AdjustSlTp(pos);
 
-                var consolidated = Core.Instance.Positions
-                    .FirstOrDefault(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol);
+                var consolidated = relevantPositions.FirstOrDefault();
                 if (consolidated != null)
                 {
                     lastEntryPrice = consolidated.OpenPrice;
                     lastSide = consolidated.Side;
+                    // Update cache
+                    _cachedPosition = consolidated;
                 }
                 return;
             }
@@ -1642,38 +1685,48 @@ X + panelW - gutter, BY + breakBtnH,
             {
                 Core.AdvancedTradingOperations.Flatten();             
                 ManualReset();
-                // reset BE display
+                // reset BE display and clear cache
                 lastEntryPrice = 0;
                 beVal = 0;
+                _cachedPosition = null;
                 return;
             }
 
             if (beBtn.Contains(x, y))
             {
-                // grab every open position for this account & symbol
-                foreach (var pos in Core.Instance.Positions)
+                // Optimized: filter positions once before iterating
+                foreach (var pos in Core.Instance.Positions
+                    .Where(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol))
                 {
-                    if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol)
-                        Core.Instance.AdvancedTradingOperations.BreakEven(pos);
+                    Core.Instance.AdvancedTradingOperations.BreakEven(pos);
                 }
+                
                 return;
             }
 
             // only winners
             if (btnProfit.Contains(x, y))
             {
-                foreach (var pos in Core.Instance.Positions)
-                    if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol && pos.GrossPnL.Value > 0)
-                        Core.AdvancedTradingOperations.Flatten(pos.Id);
+                // Optimized: filter and process in one pass
+                foreach (var pos in Core.Instance.Positions
+                    .Where(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol && p.GrossPnL.Value > 0))
+                {
+                    Core.AdvancedTradingOperations.Flatten(pos.Id);
+                }
+                
                 return;
             }
 
             // only losers
             if (btnLoss.Contains(x, y))
             {
-                foreach (var pos in Core.Instance.Positions)
-                    if (pos.Account == CurrentChart.Account && pos.Symbol == this.Symbol && pos.GrossPnL.Value < 0)
-                        Core.AdvancedTradingOperations.Flatten(pos.Id);
+                // Optimized: filter and process in one pass
+                foreach (var pos in Core.Instance.Positions
+                    .Where(p => p.Account == CurrentChart.Account && p.Symbol == this.Symbol && p.GrossPnL.Value < 0))
+                {
+                    Core.AdvancedTradingOperations.Flatten(pos.Id);
+                }
+                
                 return;
             }
 
