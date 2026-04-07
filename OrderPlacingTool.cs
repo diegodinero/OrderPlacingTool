@@ -1415,8 +1415,7 @@ X + panelW - gutter, BY + breakBtnH,
             float sellLabelY = sellBtn.Y1 + sellBtn.Height / 2f;
             float priceY     = sellLabelY + smallFont.Height - 8;
             float sellX      = sellBtn.X1 + sellBtn.Width / 2f;
-            float buyX       = buyBtn.X1  + buyBtn.Width  / 2f;
-            using (var sellBrush = new SolidBrush(sellCol.Color1))
+            float buyX       = buyBtn.X1  + buyBtn.Width  / 2f;            using (var sellBrush = new SolidBrush(sellCol.Color1))
                 g.DrawString(bidPrice.ToString("F2"), smallFont, sellBrush, sellX, priceY, CenterFormat);
             using (var buyBrush = new SolidBrush(buyCol.Color1))
                 g.DrawString(askPrice.ToString("F2"), smallFont, buyBrush, buyX, priceY, CenterFormat);
@@ -1457,11 +1456,11 @@ X + panelW - gutter, BY + breakBtnH,
             float wR     = g.MeasureString("R", rrFont).Width;
             float wC     = g.MeasureString(":", rrFont).Width;
             float totalW = wR + wC + wR;
-            float startX2  = rrBtnRectSlim.X + (rrBtnRectSlim.Width - totalW) / 2f;
-            float centerY2 = rrBtnRectSlim.Y + rrBtnRectSlim.Height / 2f;
-            g.DrawString("R", rrFont, Brushes.Red,   new PointF(startX2 + wR / 2,           centerY2), rrFmt);
-            g.DrawString(":", rrFont, Brushes.White, new PointF(startX2 + wR + wC / 2,      centerY2), rrFmt);
-            g.DrawString("R", rrFont, Brushes.Green, new PointF(startX2 + wR + wC + wR / 2, centerY2), rrFmt);
+            float rrStartX = rrBtnRectSlim.X + (rrBtnRectSlim.Width - totalW) / 2f;
+            float rrCenterY = rrBtnRectSlim.Y + rrBtnRectSlim.Height / 2f;
+            g.DrawString("R", rrFont, Brushes.Red,   new PointF(rrStartX + wR / 2,           rrCenterY), rrFmt);
+            g.DrawString(":", rrFont, Brushes.White, new PointF(rrStartX + wR + wC / 2,      rrCenterY), rrFmt);
+            g.DrawString("R", rrFont, Brushes.Green, new PointF(rrStartX + wR + wC + wR / 2, rrCenterY), rrFmt);
         }
 
         /// <summary>
