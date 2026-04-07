@@ -81,6 +81,10 @@ namespace OrderPlacingTool
         const int gutter = 8;
         const int radioSize = 14;
 
+        // Buy/Sell button text layout: label in top section, price in bottom section
+        const float BuySellLabelYFraction = 0.30f;
+        const float BuySellPriceYFraction = 0.68f;
+
         //── COLORS & FONTS ───────────────────────────────────────────────────────────
         readonly Color pipsAndCurrency = Color.FromArgb(184, 205, 228);
         readonly Color panelBack = Color.FromArgb(20, 30, 40);
@@ -870,10 +874,8 @@ X + panelW - gutter, BY + breakBtnH,
             args.Graphics.DrawImage(img, lockRect.X, lockRect.Y, lockRect.Width, lockRect.Height);
 
             // 3) Row1: SELL / qty / BUY
-            sellBtn.Draw(g, btnRadius);
-            buyBtn.Draw(g, btnRadius);
-            //g.DrawString(quantity.ToString(), mainFont, textBrush,
-                         //X + panelW / 2, Y + headerH + row1H / 2, CenterFormat);
+            sellBtn.Draw(g, btnRadius, BuySellLabelYFraction);
+            buyBtn.Draw(g, btnRadius, BuySellLabelYFraction);
 
             // now draw Limit / Stop entry buttons
             limitOrderBtn.Draw(g, btnRadius);
@@ -883,12 +885,8 @@ X + panelW - gutter, BY + breakBtnH,
             double bidPrice = Symbol.Bid;
             double askPrice = Symbol.Ask;
 
-            // compute the Y position of the button‐label center
-            float sellLabelY = sellBtn.Y1 + sellBtn.Height / 2f;
-            float buyLabelY = buyBtn.Y1 + buyBtn.Height / 2f;
-
-            // pick a Y just a font‐height below that
-            float priceY = sellLabelY + smallFont.Height - 8;
+            // compute the Y position for the price label (lower portion of button)
+            float priceY = sellBtn.Y1 + sellBtn.Height * BuySellPriceYFraction;
 
             // X centers
             float sellX = sellBtn.X1 + sellBtn.Width / 2f;
@@ -1423,16 +1421,15 @@ X + panelW - gutter, BY + breakBtnH,
             g.DrawImage(img, lockRect.X, lockRect.Y, lockRect.Width, lockRect.Height);
 
             // 3) Row 1: SELL | Limit | Stop | BUY
-            sellBtn.Draw(g, btnRadius);
-            buyBtn.Draw(g, btnRadius);
+            sellBtn.Draw(g, btnRadius, BuySellLabelYFraction);
+            buyBtn.Draw(g, btnRadius, BuySellLabelYFraction);
             limitOrderBtn.Draw(g, btnRadius);
             stopOrderBtn.Draw(g, btnRadius);
 
             // Bid/Ask prices drawn inside the SELL/BUY buttons (below their label)
             double bidPrice = Symbol.Bid;
             double askPrice = Symbol.Ask;
-            float sellLabelY = sellBtn.Y1 + sellBtn.Height / 2f;
-            float priceY = sellLabelY + smallFont.Height - 8;
+            float priceY = sellBtn.Y1 + sellBtn.Height * BuySellPriceYFraction;
             float sellX = sellBtn.X1 + sellBtn.Width / 2f;
             float buyX = buyBtn.X1 + buyBtn.Width / 2f;
             g.DrawString(bidPrice.ToString("F2"), smallFont, textBrush, sellX, priceY, CenterFormat);
@@ -1456,7 +1453,7 @@ X + panelW - gutter, BY + breakBtnH,
             // SL/TP labels flanking the R:R button
             float yPipsBar = p2.Y + row2H / 2f;
             float centerX = p2.X + p2.Width / 2f;
-            const float slimGap = 12f;
+            const float slimGap = 4f;
             SizeF slSz = g.MeasureString("SL", smallFont);
             SizeF tpSz = g.MeasureString("TP", smallFont);
             float halfRR = rrBtnRectSlim.Width / 2f;
@@ -2250,7 +2247,12 @@ X + panelW - gutter, BY + breakBtnH,
             public int Width => X2 - X1;
             public int Height => Y2 - Y1;
 
-            public void Draw(Graphics g, int radius = 0)
+            // Draws the button background and its label text.
+            // textYFraction controls the vertical position of the label as a fraction of button
+            // height (0.0 = top, 0.5 = center, 1.0 = bottom). Defaults to 0.5 (centered), which
+            // is appropriate for most buttons. Pass a smaller value (e.g. BuySellLabelYFraction)
+            // to shift the label toward the top when a secondary line (e.g. price) is drawn below.
+            public void Draw(Graphics g, int radius = 0, float textYFraction = 0.5f)
             {
                 if (isCircle)
                     return;
@@ -2273,7 +2275,7 @@ X + panelW - gutter, BY + breakBtnH,
                     font,
                     txtBrush,
                     X1 + Width / 2,
-                    Y1 + Height / 2,
+                    Y1 + Height * textYFraction,
                     OrderPlacingTool.CenterFormat
                 );
             }
