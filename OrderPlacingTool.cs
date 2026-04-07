@@ -62,6 +62,9 @@ namespace OrderPlacingTool
         [InputParameter("Panel Width", 9, 240, 420, 10)]
         public int PanelWidth { get; set; } = 280;   // default smaller than 320
 
+        [InputParameter("Ultra Slim Mode", 10)]
+        public bool UltraSlimMode { get; set; } = false;
+
         // Internal live width (we clamp inside LayoutUI so you can hot-change safely)
         private int panelW = 280;
 
@@ -131,6 +134,7 @@ namespace OrderPlacingTool
         Button sellBtn, buyBtn;
         Rectangle cashBox;
         private Rectangle rrBtnRect;
+        private Rectangle rrBtnRectSlim;
         private Rectangle lockRect;
         Button beBtn, partBtn;
         Button btnAll, btnProfit, btnLoss, btnStop;
@@ -530,6 +534,17 @@ X + panelW - gutter, BY + breakBtnH,
             int lockY = YShift + (headerH - lockH) / 2;
             lockRect = new Rectangle(lockX, lockY, lockW, lockH);
 
+            // Ultra slim mode: position R:R button where "Price" label sits in the pips bar
+            int slimP2Y = Y + headerH + row1H + 10;
+            int rrSlimW = 52;
+            int rrSlimH = row2H - 10;
+            rrBtnRectSlim = new Rectangle(
+                X + panelW / 2 - rrSlimW / 2,
+                slimP2Y + 5,
+                rrSlimW,
+                rrSlimH
+            );
+
 
 
 
@@ -771,6 +786,14 @@ X + panelW - gutter, BY + breakBtnH,
                 LeftFormat
                                 );
                             }
+
+            // Ultra slim mode: draw stripped-down panel and return
+            if (UltraSlimMode)
+            {
+                DrawUltraSlimUI(g, X, Y);
+                g.Restore(stateUI);
+                return;
+            }
 
             int panelBottom = btnStop.Y2 + gutter + row2H;
             // our rectangle starts at Y-4, so its height is panelBottom - (Y - 4)
@@ -1355,6 +1378,361 @@ X + panelW - gutter, BY + breakBtnH,
             _lastDrawingCacheTime = DateTime.MinValue;
         }
 
+        /// <summary>
+        /// Draws the ultra slim panel: black background, header + lock, Sell/Limit/Stop/Buy row,
+        /// pips bar with R:R button replacing the "Price" label.
+        /// </summary>
+        private void DrawUltraSlimUI(Graphics g, int X, int Y)
+        {
+            // Pips bar rectangle (same geometry as normal mode)
+            var p2 = new Rectangle(
+                X + gutter,
+                Y + headerH + row1H + 10,
+                panelW - gutter * 2,
+                row2H);
+
+            int slimBottom = p2.Bottom + gutter;
+            float slimPanelHeight = slimBottom - (Y - 4);
+
+            // 1) Panel background: pure black with subtle border
+            var rect = new RectangleF(X - 4, Y - 4, panelW + 8, slimPanelHeight);
+            using (var path = new GraphicsPath())
+            {
+                float d = btnRadius;
+                path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+                path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+                path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+                path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+                path.CloseAllFigures();
+
+                using (var br = new SolidBrush(Color.Black))
+                    g.FillPath(br, path);
+                g.DrawPath(new Pen(Color.FromArgb(60, 60, 60)), path);
+            }
+
+            // 2) Header bar
+            using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
+                g.FillRectangle(br, X, Y, panelW, headerH);
+
+            // "Trade Manager" title
+            g.DrawString("Trade Manager", titleFont, textBrush,
+                X + panelW / 2, Y + headerH / 2, CenterFormat);
+
+            // Lock button
+            var img = LockButtons ? _lockClosed : _lockOpen;
+            g.DrawImage(img, lockRect.X, lockRect.Y, lockRect.Width, lockRect.Height);
+
+            // 3) Row 1: SELL | Limit | Stop | BUY
+            sellBtn.Draw(g, btnRadius);
+            buyBtn.Draw(g, btnRadius);
+            limitOrderBtn.Draw(g, btnRadius);
+            stopOrderBtn.Draw(g, btnRadius);
+
+            // Bid/Ask prices drawn inside the SELL/BUY buttons (below their label)
+            double bidPrice = Symbol.Bid;
+            double askPrice = Symbol.Ask;
+            float sellLabelY = sellBtn.Y1 + sellBtn.Height / 2f;
+            float priceY = sellLabelY + smallFont.Height - 8;
+            float sellX = sellBtn.X1 + sellBtn.Width / 2f;
+            float buyX = buyBtn.X1 + buyBtn.Width / 2f;
+            g.DrawString(bidPrice.ToString("F2"), smallFont, textBrush, sellX, priceY, CenterFormat);
+            g.DrawString(askPrice.ToString("F2"), smallFont, textBrush, buyX, priceY, CenterFormat);
+
+            // 4) Pips bar with R:R button replacing "Price"
+            using (var path = RoundedRect(p2, btnRadius))
+            {
+                using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
+                    g.FillPath(br, path);
+                g.DrawPath(Pens.Gray, path);
+            }
+
+            // SL price (left third)
+            g.DrawString(pipL.ToString("F2"), mainFont, textBrush,
+                p2.X + (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
+            // TP price (right third)
+            g.DrawString(pipR.ToString("F2"), mainFont, textBrush,
+                p2.Right - (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
+
+            // SL/TP labels flanking the R:R button
+            float yPipsBar = p2.Y + row2H / 2f;
+            float centerX = p2.X + p2.Width / 2f;
+            const float slimGap = 12f;
+            SizeF slSz = g.MeasureString("SL", smallFont);
+            SizeF tpSz = g.MeasureString("TP", smallFont);
+            float halfRR = rrBtnRectSlim.Width / 2f;
+
+            float slX = centerX - halfRR - slSz.Width / 2f - slimGap;
+            g.DrawString("SL", smallFont, Brushes.Red, new PointF(slX, yPipsBar), CenterFormat);
+
+            float tpX = centerX + halfRR + tpSz.Width / 2f + slimGap;
+            g.DrawString("TP", smallFont, Brushes.Green, new PointF(tpX, yPipsBar), CenterFormat);
+
+            // R:R button (centered in pips bar where "Price" was)
+            using (var path = RoundedRect(rrBtnRectSlim, btnRadius))
+            using (var br = new SolidBrush(Color.FromArgb(20, 20, 20)))
+            {
+                g.FillPath(br, path);
+                g.DrawPath(Pens.Gray, path);
+            }
+
+            var rrFont = smallFont;
+            var rrFmt = CenterFormat;
+            float wR = g.MeasureString("R", rrFont).Width;
+            float wC = g.MeasureString(":", rrFont).Width;
+            float totalW = wR + wC + wR;
+            float startX2 = rrBtnRectSlim.X + (rrBtnRectSlim.Width - totalW) / 2f;
+            float centerY2 = rrBtnRectSlim.Y + rrBtnRectSlim.Height / 2f;
+            g.DrawString("R", rrFont, Brushes.Red, new PointF(startX2 + wR / 2, centerY2), rrFmt);
+            g.DrawString(":", rrFont, Brushes.White, new PointF(startX2 + wR + wC / 2, centerY2), rrFmt);
+            g.DrawString("R", rrFont, Brushes.Green, new PointF(startX2 + wR + wC + wR / 2, centerY2), rrFmt);
+        }
+
+        /// <summary>
+        /// Handles mouse clicks when UltraSlimMode is active.
+        /// Only the buttons visible in ultra slim mode are interactive.
+        /// </summary>
+        private void HandleUltraSlimClick(int x, int y, int rawY, double clickedPrice)
+        {
+            // Padlock toggle
+            if (lockRect.Contains(x, y))
+            {
+                LockButtons = !LockButtons;
+                LayoutUI();
+                return;
+            }
+
+            if (LockButtons) return;
+
+            // R:R button (positioned in pips bar)
+            if (rrBtnRectSlim.Contains(x, y))
+            {
+                rrArmed = !rrArmed;
+                if (rrArmed)
+                {
+                    buyArmed = sellArmed = false;
+                    buyBtn.ResetText();
+                    sellBtn.ResetText();
+                }
+                else
+                {
+                    PlaceOrderFromPSC();
+                }
+                return;
+            }
+
+            // LIMIT toggle
+            if (limitOrderBtn.Contains(x, y))
+            {
+                limitOrderBtn.isClicked = !limitOrderBtn.isClicked;
+                limitOrderBtn.Text = limitOrderBtn.isClicked ? "Cancel" : "LIMIT";
+                if (limitOrderBtn.isClicked)
+                    stopOrderBtn.Reset("STOP");
+                else
+                    tradeParams.Reset();
+                return;
+            }
+
+            // STOP toggle
+            if (stopOrderBtn.Contains(x, y))
+            {
+                stopOrderBtn.isClicked = !stopOrderBtn.isClicked;
+                stopOrderBtn.Text = stopOrderBtn.isClicked ? "Cancel" : "STOP";
+                if (stopOrderBtn.isClicked)
+                    limitOrderBtn.Reset("LIMIT");
+                else
+                    tradeParams.Reset();
+                return;
+            }
+
+            // LIMIT price picking (two-click flow)
+            if (limitOrderBtn.isClicked)
+            {
+                var mainWindow = CurrentChart.MainWindow;
+                if (tradeParams.price == 0)
+                    tradeParams.price = mainWindow.CoordinatesConverter.GetPrice(rawY);
+                else if (tradeParams.slPrice == 0)
+                    tradeParams.slPrice = mainWindow.CoordinatesConverter.GetPrice(rawY);
+
+                if (tradeParams.price != 0 && tradeParams.slPrice != 0)
+                {
+                    tradeParams.orderTypeId = OrderType.Limit.ToString();
+                    tradeParams.side = tradeParams.price > tradeParams.slPrice ? Side.Buy : Side.Sell;
+                    tradeParams.price = tradeParams.symbol.RoundPriceToTickSize(tradeParams.price, double.NaN);
+                    tradeParams.slPrice = tradeParams.symbol.RoundPriceToTickSize(tradeParams.slPrice, double.NaN);
+
+                    double slTicks = tradeParams.side == Side.Buy
+                        ? (tradeParams.price - tradeParams.slPrice) / tradeParams.symbol.TickSize
+                        : (tradeParams.slPrice - tradeParams.price) / tradeParams.symbol.TickSize;
+                    double tpTicks = slTicks * RewardMultiplier;
+                    tradeParams.lotSize = GetVolumeByFixedAmount(tradeParams.symbol, RiskAmount, slTicks);
+
+                    Task.Run(() =>
+                    {
+                        var req = new PlaceOrderRequestParameters
+                        {
+                            Symbol = tradeParams.symbol,
+                            Account = tradeParams.account,
+                            OrderTypeId = OrderType.Limit.ToString(),
+                            Side = tradeParams.side,
+                            Price = tradeParams.price,
+                            Quantity = tradeParams.lotSize,
+                            StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
+                            TakeProfit = RewardMultiplier > 0
+                                ? SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                                : null
+                        };
+                        tradingOperationResult = Core.PlaceOrder(req);
+                        tradeParams.Reset();
+                        ResetAllButtons();
+                        ManualReset();
+                    });
+                }
+                return;
+            }
+
+            // STOP price picking (two-click flow)
+            if (stopOrderBtn.isClicked)
+            {
+                var mainWindow = CurrentChart.MainWindow;
+                if (tradeParams.price == 0)
+                    tradeParams.price = mainWindow.CoordinatesConverter.GetPrice(rawY);
+                else if (tradeParams.slPrice == 0)
+                    tradeParams.slPrice = mainWindow.CoordinatesConverter.GetPrice(rawY);
+
+                if (tradeParams.price != 0 && tradeParams.slPrice != 0)
+                {
+                    tradeParams.orderTypeId = OrderType.Stop.ToString();
+                    double marketAsk = tradeParams.symbol.Ask;
+                    tradeParams.side = tradeParams.price > marketAsk ? Side.Buy : Side.Sell;
+                    tradeParams.price = tradeParams.symbol.RoundPriceToTickSize(tradeParams.price, double.NaN);
+                    tradeParams.slPrice = tradeParams.symbol.RoundPriceToTickSize(tradeParams.slPrice, double.NaN);
+
+                    double slTicks = (tradeParams.side == Side.Buy
+                        ? tradeParams.price - tradeParams.slPrice
+                        : tradeParams.slPrice - tradeParams.price) / tradeParams.symbol.TickSize;
+                    double tpTicks = slTicks * RewardMultiplier;
+                    tradeParams.lotSize = GetVolumeByFixedAmount(tradeParams.symbol, RiskAmount, slTicks);
+
+                    Task.Run(() =>
+                    {
+                        var req = new PlaceOrderRequestParameters
+                        {
+                            Symbol = tradeParams.symbol,
+                            Account = this.CurrentChart.Account,
+                            OrderTypeId = OrderType.Stop.ToString(),
+                            Side = tradeParams.side,
+                            TriggerPrice = tradeParams.price,
+                            Quantity = tradeParams.lotSize,
+                            StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
+                            TakeProfit = RewardMultiplier > 0
+                                ? SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                                : null,
+                            TimeInForce = TimeInForce.GTC
+                        };
+                        Core.Instance.PlaceOrder(req);
+                        tradeParams.Reset();
+                        ResetAllButtons();
+                    });
+                }
+                return;
+            }
+
+            // BUY button armed/disarmed
+            if (buyBtn.Contains(x, y))
+            {
+                buyArmed = !buyArmed;
+                buyBtn.Text = buyArmed ? "Cancel" : "BUY";
+                if (buyArmed)
+                {
+                    isBuyFlow = true;
+                    entryPrice = Symbol.Ask;
+                    stopPrice = 0;
+                    sellArmed = rrArmed = false;
+                    sellBtn.Text = "SELL";
+                }
+                else
+                {
+                    isBuyFlow = false;
+                }
+                return;
+            }
+
+            // Finish BUY on second click (anywhere on chart)
+            if (isBuyFlow && stopPrice == 0)
+            {
+                stopPrice = clickedPrice;
+                double slTicks = Math.Abs((entryPrice - stopPrice) / Symbol.TickSize);
+                double tpTicks = slTicks * RewardMultiplier;
+                double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
+
+                var req = new PlaceOrderRequestParameters
+                {
+                    Symbol = Symbol,
+                    Account = this.CurrentChart.Account,
+                    OrderTypeId = OrderType.Market.ToString(),
+                    Side = Side.Buy,
+                    Quantity = qty,
+                    StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
+                    TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                };
+                Core.Instance.PlaceOrder(req);
+
+                buyArmed = false;
+                buyBtn.Text = "BUY";
+                lastSide = Side.Buy;
+                lastEntryPrice = entryPrice;
+                isBuyFlow = false;
+                return;
+            }
+
+            // SELL button armed/disarmed
+            if (sellBtn.Contains(x, y))
+            {
+                sellArmed = !sellArmed;
+                sellBtn.Text = sellArmed ? "Cancel" : "SELL";
+                if (sellArmed)
+                {
+                    isSellFlow = true;
+                    entryPrice = Symbol.Bid;
+                    stopPrice = 0;
+                    buyArmed = rrArmed = false;
+                    buyBtn.Text = "BUY";
+                }
+                else
+                {
+                    isSellFlow = false;
+                }
+                return;
+            }
+
+            // Finish SELL on second click (anywhere on chart)
+            if (isSellFlow && stopPrice == 0)
+            {
+                stopPrice = clickedPrice;
+                double slTicks = Math.Abs((stopPrice - entryPrice) / Symbol.TickSize);
+                double tpTicks = slTicks * RewardMultiplier;
+                double qty = GetVolumeByFixedAmount(Symbol, RiskAmount, slTicks);
+
+                var req = new PlaceOrderRequestParameters
+                {
+                    Symbol = Symbol,
+                    Account = this.CurrentChart.Account,
+                    OrderTypeId = OrderType.Market.ToString(),
+                    Side = Side.Sell,
+                    Quantity = qty,
+                    StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
+                    TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                };
+                Core.Instance.PlaceOrder(req);
+
+                sellArmed = false;
+                sellBtn.Text = "SELL";
+                lastSide = Side.Sell;
+                lastEntryPrice = entryPrice;
+                isSellFlow = false;
+            }
+        }
+
 
 
         void CurrentChart_MouseClick(object _, ChartMouseNativeEventArgs e)
@@ -1372,6 +1750,13 @@ X + panelW - gutter, BY + breakBtnH,
             // 2) hit-testing on your scaled UI needs logical coords:
             int x = (int)(rawX / UIScale);
             int y = (int)(rawY / UIScale);
+
+            // route to ultra slim handler when that mode is active
+            if (UltraSlimMode)
+            {
+                HandleUltraSlimClick(x, y, rawY, clickedPrice);
+                return;
+            }
 
             // padlock toggle
             if (lockRect.Contains(x, y))
