@@ -1581,7 +1581,7 @@ X + panelW - gutter, BY + breakBtnH,
                                 ? SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
                                 : null
                         };
-                        tradingOperationResult = Core.PlaceOrder(req);
+                        tradingOperationResult = Core.Instance.PlaceOrder(req);
                         tradeParams.Reset();
                         ResetAllButtons();
                         ManualReset();
@@ -1618,7 +1618,7 @@ X + panelW - gutter, BY + breakBtnH,
                         var req = new PlaceOrderRequestParameters
                         {
                             Symbol = tradeParams.symbol,
-                            Account = this.CurrentChart.Account,
+                            Account = tradeParams.account,
                             OrderTypeId = OrderType.Stop.ToString(),
                             Side = tradeParams.side,
                             TriggerPrice = tradeParams.price,
@@ -1673,7 +1673,9 @@ X + panelW - gutter, BY + breakBtnH,
                     Side = Side.Buy,
                     Quantity = qty,
                     StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
-                    TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                    TakeProfit = RewardMultiplier > 0
+                        ? SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                        : null
                 };
                 Core.Instance.PlaceOrder(req);
 
@@ -1721,7 +1723,9 @@ X + panelW - gutter, BY + breakBtnH,
                     Side = Side.Sell,
                     Quantity = qty,
                     StopLoss = SlTpHolder.CreateSL(slTicks, PriceMeasurement.Offset, false, double.NaN, double.NaN),
-                    TakeProfit = SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                    TakeProfit = RewardMultiplier > 0
+                        ? SlTpHolder.CreateTP(tpTicks, PriceMeasurement.Offset, double.NaN, double.NaN)
+                        : null
                 };
                 Core.Instance.PlaceOrder(req);
 
