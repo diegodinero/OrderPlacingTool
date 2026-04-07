@@ -1379,8 +1379,9 @@ X + panelW - gutter, BY + breakBtnH,
         }
 
         /// <summary>
-        /// Draws the ultra slim panel: black background, header + lock, Sell/Limit/Stop/Buy row,
-        /// pips bar with R:R button replacing the "Price" label.
+        /// Draws the ultra slim panel: no container backgrounds, header + lock,
+        /// Sell/Limit/Stop/Buy row with black-fill / colored-border / colored-text buttons,
+        /// and a pips bar with R:R button replacing the "Price" label.
         /// </summary>
         private void DrawUltraSlimUI(Graphics g, int X, int Y)
         {
@@ -1391,30 +1392,9 @@ X + panelW - gutter, BY + breakBtnH,
                 panelW - gutter * 2,
                 row2H);
 
-            int slimBottom = p2.Bottom + gutter;
-            float slimPanelHeight = slimBottom - (Y - 4);
+            // ── No panel background; no header fill ──────────────────────────────────
 
-            // 1) Panel background: pure black with subtle border
-            var rect = new RectangleF(X - 4, Y - 4, panelW + 8, slimPanelHeight);
-            using (var path = new GraphicsPath())
-            {
-                float d = btnRadius;
-                path.AddArc(rect.X, rect.Y, d, d, 180, 90);
-                path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
-                path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
-                path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
-                path.CloseAllFigures();
-
-                using (var br = new SolidBrush(Color.Black))
-                    g.FillPath(br, path);
-                g.DrawPath(new Pen(Color.FromArgb(60, 60, 60)), path);
-            }
-
-            // 2) Header bar
-            using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
-                g.FillRectangle(br, X, Y, panelW, headerH);
-
-            // "Trade Manager" title
+            // "Trade Manager" title (white on transparent)
             g.DrawString("Trade Manager", titleFont, textBrush,
                 X + panelW / 2, Y + headerH / 2, CenterFormat);
 
@@ -1422,69 +1402,86 @@ X + panelW - gutter, BY + breakBtnH,
             var img = LockButtons ? _lockClosed : _lockOpen;
             g.DrawImage(img, lockRect.X, lockRect.Y, lockRect.Width, lockRect.Height);
 
-            // 3) Row 1: SELL | Limit | Stop | BUY
-            sellBtn.Draw(g, btnRadius);
-            buyBtn.Draw(g, btnRadius);
-            limitOrderBtn.Draw(g, btnRadius);
-            stopOrderBtn.Draw(g, btnRadius);
+            // ── Row 1: SELL | Limit | Stop | BUY ─────────────────────────────────────
+            // Each button: black fill, old-background-color border + text
+            DrawSlimButton(g, sellBtn,       sellCol.Color1,             mainFont,  btnRadius);
+            DrawSlimButton(g, limitOrderBtn, partCol.Color1,             smallFont, btnRadius);
+            DrawSlimButton(g, stopOrderBtn,  beCol.Color1,               smallFont, btnRadius);
+            DrawSlimButton(g, buyBtn,        buyCol.Color1,              mainFont,  btnRadius);
 
             // Bid/Ask prices drawn inside the SELL/BUY buttons (below their label)
             double bidPrice = Symbol.Bid;
             double askPrice = Symbol.Ask;
             float sellLabelY = sellBtn.Y1 + sellBtn.Height / 2f;
-            float priceY = sellLabelY + smallFont.Height - 8;
-            float sellX = sellBtn.X1 + sellBtn.Width / 2f;
-            float buyX = buyBtn.X1 + buyBtn.Width / 2f;
-            g.DrawString(bidPrice.ToString("F2"), smallFont, textBrush, sellX, priceY, CenterFormat);
-            g.DrawString(askPrice.ToString("F2"), smallFont, textBrush, buyX, priceY, CenterFormat);
+            float priceY     = sellLabelY + smallFont.Height - 8;
+            float sellX      = sellBtn.X1 + sellBtn.Width / 2f;
+            float buyX       = buyBtn.X1  + buyBtn.Width  / 2f;
+            using (var sellBrush = new SolidBrush(sellCol.Color1))
+                g.DrawString(bidPrice.ToString("F2"), smallFont, sellBrush, sellX, priceY, CenterFormat);
+            using (var buyBrush = new SolidBrush(buyCol.Color1))
+                g.DrawString(askPrice.ToString("F2"), smallFont, buyBrush, buyX, priceY, CenterFormat);
 
-            // 4) Pips bar with R:R button replacing "Price"
+            // ── Pips bar: no fill, keep outline as hit-area boundary ─────────────────
             using (var path = RoundedRect(p2, btnRadius))
-            {
-                using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
-                    g.FillPath(br, path);
                 g.DrawPath(Pens.Gray, path);
-            }
 
-            // SL price (left third)
-            g.DrawString(pipL.ToString("F2"), mainFont, textBrush,
+            // SL price (left third) in red, TP price (right third) in green
+            g.DrawString(pipL.ToString("F2"), mainFont, Brushes.Red,
                 p2.X + (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
-            // TP price (right third)
-            g.DrawString(pipR.ToString("F2"), mainFont, textBrush,
+            g.DrawString(pipR.ToString("F2"), mainFont, Brushes.Green,
                 p2.Right - (p2.Width / 3) / 2, p2.Y + row2H / 2, CenterFormat);
 
             // SL/TP labels flanking the R:R button
             float yPipsBar = p2.Y + row2H / 2f;
-            float centerX = p2.X + p2.Width / 2f;
+            float centerX  = p2.X + p2.Width / 2f;
             const float slimGap = 12f;
             SizeF slSz = g.MeasureString("SL", smallFont);
             SizeF tpSz = g.MeasureString("TP", smallFont);
             float halfRR = rrBtnRectSlim.Width / 2f;
 
             float slX = centerX - halfRR - slSz.Width / 2f - slimGap;
-            g.DrawString("SL", smallFont, Brushes.Red, new PointF(slX, yPipsBar), CenterFormat);
-
+            g.DrawString("SL", smallFont, Brushes.Red,   new PointF(slX, yPipsBar), CenterFormat);
             float tpX = centerX + halfRR + tpSz.Width / 2f + slimGap;
             g.DrawString("TP", smallFont, Brushes.Green, new PointF(tpX, yPipsBar), CenterFormat);
 
-            // R:R button (centered in pips bar where "Price" was)
+            // ── R:R button: black fill, gray border, red-R / white-colon / green-R ───
             using (var path = RoundedRect(rrBtnRectSlim, btnRadius))
-            using (var br = new SolidBrush(Color.FromArgb(20, 20, 20)))
             {
-                g.FillPath(br, path);
+                using (var br = new SolidBrush(Color.Black))
+                    g.FillPath(br, path);
                 g.DrawPath(Pens.Gray, path);
             }
 
-            var rrFont = smallFont;
-            var rrFmt = CenterFormat;
-            float wR = g.MeasureString("R", rrFont).Width;
-            float wC = g.MeasureString(":", rrFont).Width;
+            var rrFont   = smallFont;
+            var rrFmt    = CenterFormat;
+            float wR     = g.MeasureString("R", rrFont).Width;
+            float wC     = g.MeasureString(":", rrFont).Width;
             float totalW = wR + wC + wR;
-            float startX2 = rrBtnRectSlim.X + (rrBtnRectSlim.Width - totalW) / 2f;
+            float startX2  = rrBtnRectSlim.X + (rrBtnRectSlim.Width - totalW) / 2f;
             float centerY2 = rrBtnRectSlim.Y + rrBtnRectSlim.Height / 2f;
-            g.DrawString("R", rrFont, Brushes.Red, new PointF(startX2 + wR / 2, centerY2), rrFmt);
-            g.DrawString(":", rrFont, Brushes.White, new PointF(startX2 + wR + wC / 2, centerY2), rrFmt);
+            g.DrawString("R", rrFont, Brushes.Red,   new PointF(startX2 + wR / 2,           centerY2), rrFmt);
+            g.DrawString(":", rrFont, Brushes.White, new PointF(startX2 + wR + wC / 2,      centerY2), rrFmt);
             g.DrawString("R", rrFont, Brushes.Green, new PointF(startX2 + wR + wC + wR / 2, centerY2), rrFmt);
+        }
+
+        /// <summary>
+        /// Draws a button with a black fill, colored border, and colored text —
+        /// used in Ultra Slim Mode where the accent color is what the button's
+        /// background used to be in normal mode.
+        /// </summary>
+        private void DrawSlimButton(Graphics g, Button btn, Color accentColor, Font font, int radius)
+        {
+            var rect = new RectangleF(btn.X1, btn.Y1, btn.Width, btn.Height);
+            using (var path = RoundedRect(rect, radius))
+            {
+                using (var fill = new SolidBrush(Color.Black))
+                    g.FillPath(fill, path);
+                using (var pen = new Pen(accentColor, 1.5f))
+                    g.DrawPath(pen, path);
+            }
+            using (var textBr = new SolidBrush(accentColor))
+                g.DrawString(btn.Text, font, textBr,
+                    btn.X1 + btn.Width / 2f, btn.Y1 + btn.Height / 2f, CenterFormat);
         }
 
         /// <summary>
