@@ -1403,14 +1403,20 @@ X + panelW - gutter, BY + breakBtnH,
                 path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
                 path.CloseAllFigures();
 
-                using (var br = new SolidBrush(Color.Black))
-                    g.FillPath(br, path);
+                if (!TransparentBackground)
+                {
+                    using (var br = new SolidBrush(Color.Black))
+                        g.FillPath(br, path);
+                }
                 g.DrawPath(new Pen(Color.FromArgb(60, 60, 60)), path);
             }
 
             // 2) Header bar
-            using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
-                g.FillRectangle(br, X, Y, panelW, headerH);
+            if (!TransparentBackground)
+            {
+                using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
+                    g.FillRectangle(br, X, Y, panelW, headerH);
+            }
 
             // "Trade Manager" title
             g.DrawString("Trade Manager", titleFont, textBrush,
