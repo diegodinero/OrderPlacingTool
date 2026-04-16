@@ -1403,14 +1403,20 @@ X + panelW - gutter, BY + breakBtnH,
                 path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
                 path.CloseAllFigures();
 
-                using (var br = new SolidBrush(Color.Black))
-                    g.FillPath(br, path);
+                if (!TransparentBackground)
+                {
+                    using (var br = new SolidBrush(Color.Black))
+                        g.FillPath(br, path);
+                }
                 g.DrawPath(new Pen(Color.FromArgb(60, 60, 60)), path);
             }
 
             // 2) Header bar
-            using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
-                g.FillRectangle(br, X, Y, panelW, headerH);
+            if (!TransparentBackground)
+            {
+                using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
+                    g.FillRectangle(br, X, Y, panelW, headerH);
+            }
 
             // "Trade Manager" title
             g.DrawString("Trade Manager", titleFont, textBrush,
@@ -1438,8 +1444,11 @@ X + panelW - gutter, BY + breakBtnH,
             // 4) Pips bar with R:R button replacing "Price"
             using (var path = RoundedRect(p2, btnRadius))
             {
-                using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
-                    g.FillPath(br, path);
+                if (!TransparentBackground)
+                {
+                    using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
+                        g.FillPath(br, path);
+                }
                 g.DrawPath(Pens.Gray, path);
             }
 
@@ -1466,9 +1475,12 @@ X + panelW - gutter, BY + breakBtnH,
 
             // R:R button (centered in pips bar where "Price" was)
             using (var path = RoundedRect(rrBtnRectSlim, btnRadius))
-            using (var br = new SolidBrush(Color.FromArgb(20, 20, 20)))
             {
-                g.FillPath(br, path);
+                if (!TransparentBackground)
+                {
+                    using (var br = new SolidBrush(Color.FromArgb(20, 20, 20)))
+                        g.FillPath(br, path);
+                }
                 g.DrawPath(Pens.Gray, path);
             }
 
