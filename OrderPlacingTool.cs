@@ -1444,8 +1444,11 @@ X + panelW - gutter, BY + breakBtnH,
             // 4) Pips bar with R:R button replacing "Price"
             using (var path = RoundedRect(p2, btnRadius))
             {
-                using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
-                    g.FillPath(br, path);
+                if (!TransparentBackground)
+                {
+                    using (var br = new SolidBrush(Color.FromArgb(10, 10, 10)))
+                        g.FillPath(br, path);
+                }
                 g.DrawPath(Pens.Gray, path);
             }
 
@@ -1472,9 +1475,12 @@ X + panelW - gutter, BY + breakBtnH,
 
             // R:R button (centered in pips bar where "Price" was)
             using (var path = RoundedRect(rrBtnRectSlim, btnRadius))
-            using (var br = new SolidBrush(Color.FromArgb(20, 20, 20)))
             {
-                g.FillPath(br, path);
+                if (!TransparentBackground)
+                {
+                    using (var br = new SolidBrush(Color.FromArgb(20, 20, 20)))
+                        g.FillPath(br, path);
+                }
                 g.DrawPath(Pens.Gray, path);
             }
 
