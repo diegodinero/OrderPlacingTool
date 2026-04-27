@@ -187,6 +187,12 @@ namespace OrderPlacingTool
         private IDrawing _cachedShortPos = null;
         private DateTime _lastDrawingCacheTime = DateTime.MinValue;
         private readonly TimeSpan _drawingCacheInterval = TimeSpan.FromMilliseconds(200);
+
+        // ── DRAG STATE ───────────────────────────────────────────────────────────────
+        // True while the user is holding the mouse button on the header and dragging.
+        private bool _isDragging;
+        private int _dragOffsetX;   // cursor X offset from panel left edge when drag started
+        private int _dragOffsetY;   // cursor Y offset from panel top  edge when drag started
         //──────────────────────────────────────────────────────────────────────────────
         public OrderPlacingTool()
         {
@@ -302,6 +308,9 @@ namespace OrderPlacingTool
 
             LayoutUI();
             CurrentChart.MouseClick += CurrentChart_MouseClick;
+            CurrentChart.MouseDown  += OnChartMouseDown;
+            CurrentChart.MouseMove  += OnChartMouseMove;
+            CurrentChart.MouseUp    += OnChartMouseUp;
             Core.Instance.OrdersHistoryAdded += OnOrderClosed;
             Core.Instance.OrdersHistoryAdded += OnOrderFilled;
         }
@@ -559,6 +568,9 @@ X + panelW - gutter, BY + breakBtnH,
         public override void Dispose()
         {
             CurrentChart.MouseClick -= CurrentChart_MouseClick;
+            CurrentChart.MouseDown  -= OnChartMouseDown;
+            CurrentChart.MouseMove  -= OnChartMouseMove;
+            CurrentChart.MouseUp    -= OnChartMouseUp;
             Core.Instance.OrdersHistoryAdded -= OnOrderClosed;
             Core.Instance.OrdersHistoryAdded -= OnOrderFilled;
             
@@ -829,11 +841,18 @@ X + panelW - gutter, BY + breakBtnH,
             }
             // 2) Header bar (transparent option)
             var hdr = new Rectangle(X, Y, panelW, headerH);
-            if (!TransparentBackground)
+            if (!TransparentBackground || _isDragging)
             {
-                using (var br = new SolidBrush(headerBack))
+                // Highlight header while dragging so the user gets clear visual feedback
+                Color hdrColor = _isDragging
+                    ? Color.FromArgb(60, 70, 90)
+                    : headerBack;
+                using (var br = new SolidBrush(hdrColor))
                     g.FillRectangle(br, hdr);
             }
+
+            // Drag handle indicator (3 rows × 2 columns of small dots) at the left of the header
+            DrawDragHandle(g, X, Y);
             
             // Draw "Trade Manager" title and symbol name
             string titleText = "Trade Manager";
@@ -1422,6 +1441,9 @@ X + panelW - gutter, BY + breakBtnH,
             g.DrawString("Trade Manager", titleFont, textBrush,
                 X + panelW / 2, Y + headerH / 2, CenterFormat);
 
+            // Drag handle indicator in ultra slim header
+            DrawDragHandle(g, X, Y);
+
             // Lock button
             var img = LockButtons ? _lockClosed : _lockOpen;
             g.DrawImage(img, lockRect.X, lockRect.Y, lockRect.Width, lockRect.Height);
@@ -1502,6 +1524,9 @@ X + panelW - gutter, BY + breakBtnH,
         /// </summary>
         private void HandleUltraSlimClick(int x, int y, int rawY, double clickedPrice)
         {
+            // ignore clicks that are part of a drag gesture
+            if (_isDragging) return;
+
             // Padlock toggle
             if (lockRect.Contains(x, y))
             {
@@ -1748,6 +1773,78 @@ X + panelW - gutter, BY + breakBtnH,
 
 
 
+        // MouseDown: start a drag when the user presses on the header.
+        // Setting e.Handled = true prevents the chart from treating the drag as a pan.
+        private void OnChartMouseDown(object sender, ChartMouseNativeEventArgs e)
+        {
+            var ne = (NativeMouseEventArgs)e;
+            if (ne.Button != NativeMouseButtons.Left) return;
+
+            int x = (int)(ne.X / UIScale);
+            int y = (int)(ne.Y / UIScale);
+
+            var headerRect = new Rectangle(XShift, YShift, panelW, headerH);
+            if (headerRect.Contains(x, y) && !lockRect.Contains(x, y))
+            {
+                _isDragging  = true;
+                _dragOffsetX = x - XShift;
+                _dragOffsetY = y - YShift;
+                e.Handled    = true;
+            }
+            else
+            {
+                // Reset in case the drag state got stuck (e.g. mouse released outside the chart).
+                _isDragging = false;
+            }
+        }
+
+        // MouseMove: live-move the panel while the user is dragging.
+        private void OnChartMouseMove(object sender, ChartMouseNativeEventArgs e)
+        {
+            if (!_isDragging) return;
+
+            var ne = (NativeMouseEventArgs)e;
+
+            // If the left button is no longer held (e.g. released outside the chart window),
+            // cancel the drag so the panel stops moving and clicks work again.
+            if (ne.Button != NativeMouseButtons.Left)
+            {
+                _isDragging = false;
+                return;
+            }
+
+            int x = (int)(ne.X / UIScale);
+            int y = (int)(ne.Y / UIScale);
+
+            int newX = Math.Max(0, x - _dragOffsetX);
+            int newY = Math.Max(0, y - _dragOffsetY);
+
+            // Clamp so the panel stays within the chart window.
+            if (CurrentChart?.MainWindow != null)
+            {
+                var clientW = (int)(CurrentChart.MainWindow.ClientRectangle.Width  / UIScale);
+                var clientH = (int)(CurrentChart.MainWindow.ClientRectangle.Height / UIScale);
+                newX = Math.Min(newX, Math.Max(0, clientW - panelW));
+                newY = Math.Min(newY, Math.Max(0, clientH - headerH));
+            }
+
+            XShift    = newX;
+            YShift    = newY;
+            e.Handled = true;
+            LayoutUI();
+            CurrentChart?.RedrawBuffer();
+        }
+
+        // MouseUp: finish the drag.
+        private void OnChartMouseUp(object sender, ChartMouseNativeEventArgs e)
+        {
+            if (_isDragging)
+            {
+                _isDragging = false;
+                e.Handled   = true;
+            }
+        }
+
         void CurrentChart_MouseClick(object _, ChartMouseNativeEventArgs e)
         {
             var ne = (NativeMouseEventArgs)e;
@@ -1770,6 +1867,9 @@ X + panelW - gutter, BY + breakBtnH,
                 HandleUltraSlimClick(x, y, rawY, clickedPrice);
                 return;
             }
+
+            // ignore clicks that are part of a drag gesture
+            if (_isDragging) return;
 
             // padlock toggle
             if (lockRect.Contains(x, y))
@@ -2187,6 +2287,30 @@ X + panelW - gutter, BY + breakBtnH,
             return volumeByFixedAmount;
         }
 
+
+        /// <summary>
+        /// Draws a 3×2 dot drag-handle indicator at the left side of the header.
+        /// Dots turn bright blue while dragging to give visual feedback.
+        /// </summary>
+        private void DrawDragHandle(Graphics g, int panelX, int panelY)
+        {
+            Color dotColor = _isDragging
+                ? Color.FromArgb(200, 100, 200, 255)  // bright blue while dragging
+                : Color.FromArgb(120, 180, 180, 180);
+            using (var dotBrush = new SolidBrush(dotColor))
+            {
+                const int dotSize = 2;
+                const int dotGap  = 3;
+                int handleX = panelX + gutter;
+                int handleY = panelY + (headerH - (3 * dotSize + 2 * dotGap)) / 2;
+                for (int col = 0; col < 2; col++)
+                    for (int row = 0; row < 3; row++)
+                        g.FillEllipse(dotBrush,
+                            handleX + col * (dotSize + dotGap),
+                            handleY + row * (dotSize + dotGap),
+                            dotSize, dotSize);
+            }
+        }
 
         /// <summary>
         /// Returns a rounded‐corner rectangle path.
