@@ -1524,6 +1524,9 @@ X + panelW - gutter, BY + breakBtnH,
         /// </summary>
         private void HandleUltraSlimClick(int x, int y, int rawY, double clickedPrice)
         {
+            // ignore clicks that are part of a drag gesture
+            if (_isDragging) return;
+
             // Padlock toggle
             if (lockRect.Contains(x, y))
             {
@@ -1864,6 +1867,9 @@ X + panelW - gutter, BY + breakBtnH,
                 HandleUltraSlimClick(x, y, rawY, clickedPrice);
                 return;
             }
+
+            // ignore clicks that are part of a drag gesture
+            if (_isDragging) return;
 
             // padlock toggle
             if (lockRect.Contains(x, y))
