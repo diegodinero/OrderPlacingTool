@@ -1784,7 +1784,7 @@ X + panelW - gutter, BY + breakBtnH,
             int y = (int)(ne.Y / UIScale);
 
             var headerRect = new Rectangle(XShift, YShift, panelW, headerH);
-            if (headerRect.Contains(x, y))
+            if (headerRect.Contains(x, y) && !lockRect.Contains(x, y))
             {
                 _isDragging  = true;
                 _dragOffsetX = x - XShift;
